@@ -69,19 +69,22 @@ export function AppShell() {
 
   useEffect(() => {
     void refreshAll();
-  }, [refreshAll]);
+    // Initial load only — avoid depending on refreshAll identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const hasActiveJobs = jobs.some(
+    (j) => j.status === "queued" || j.status === "running",
+  );
 
   useEffect(() => {
-    const hasActive = jobs.some(
-      (j) => j.status === "queued" || j.status === "running",
-    );
-    if (!hasActive) return;
+    if (!hasActiveJobs) return;
     const timer = setInterval(() => {
       void loadJobs();
       void loadContainers(false);
     }, 2000);
     return () => clearInterval(timer);
-  }, [jobs, loadContainers, loadJobs]);
+  }, [hasActiveJobs, loadContainers, loadJobs]);
 
   async function handleUpdate(vmids: number[]) {
     setUpdating(true);

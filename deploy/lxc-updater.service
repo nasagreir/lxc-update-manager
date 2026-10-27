@@ -1,0 +1,15 @@
+[Unit]
+Description=Proxmox LXC Updater
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/lxc-updater
+Environment=NODE_ENV=production
+Environment=PORT=3847
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

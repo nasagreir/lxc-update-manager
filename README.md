@@ -66,11 +66,52 @@ This repo also ships the usual pair for upstream-style installs:
 
 ## What it does
 
-- Lists all LXC containers via the Proxmox API
+- Lists all LXC containers across the Proxmox cluster (multi-node)
 - Detects how each CT updates: community `update` command, `apt`, or `apk`
 - **Check for updates** — pending apt/apk packages, plus git remotes behind upstream for helper-script CTs; rows needing work show a red **Update available** button
 - Runs updates from the browser (with live job logs)
-- Schedules automations (daily / weekly / monthly / cron) that drive the same path unattended
+- **Automations** — cron schedules that can re-check first and only update outdated CTs
+- **API keys** — Bearer auth for Grok / other bots via `/api/v1/*`
+
+## Automations
+
+In the **Automations** tab, create a schedule (daily / weekly / monthly / cron). Recommended defaults:
+
+- Check for updates before running
+- Only update CTs with updates available
+- Only running containers
+- Optional stagger between CTs
+
+**Run now** triggers the same path immediately.
+
+## API keys (Grok bot)
+
+1. Open **API keys** in the UI and create a key (copy the `lxcu_…` secret once).
+2. Call `/api/v1/*` with `Authorization: Bearer lxcu_…` or `X-Api-Key: lxcu_…`.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/v1/status` | Cluster summary |
+| GET | `/api/v1/containers` | List CTs (`?check=1`, `?available=1`, `?node=pve1`) |
+| POST | `/api/v1/containers/check` | Probe for pending updates |
+| POST | `/api/v1/updates` | Start updates (`{ "vmids": [101] }` or `{ "allAvailable": true }`) |
+| GET | `/api/v1/jobs` | Job history (`?status=running`) |
+| GET | `/api/v1/jobs/:id` | Job detail + log |
+| GET/POST | `/api/v1/automations` | List / create schedules |
+| PATCH | `/api/v1/automations/:id` | Edit or `{ "runNow": true }` |
+
+```bash
+curl -s http://HOST:3847/api/v1/status \
+  -H "Authorization: Bearer lxcu_…"
+
+curl -s -X POST http://HOST:3847/api/v1/containers/check \
+  -H "Authorization: Bearer lxcu_…"
+
+curl -s -X POST http://HOST:3847/api/v1/updates \
+  -H "Authorization: Bearer lxcu_…" \
+  -H "Content-Type: application/json" \
+  -d '{"allAvailable":true}'
+```
 
 Community-script updates work by piping configurable answers (usually `y`) into `update` over `pct exec`, so you do not need an interactive console.
 

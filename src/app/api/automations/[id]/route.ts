@@ -7,7 +7,6 @@ import {
   triggerAutomationNow,
 } from "@/lib/scheduler";
 
-
 const patchSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   enabled: z.boolean().optional(),
@@ -15,6 +14,8 @@ const patchSchema = z.object({
   cron: z.string().optional(),
   containerIds: z.array(z.number().int().positive()).optional(),
   onlyRunning: z.boolean().optional(),
+  checkBeforeRun: z.boolean().optional(),
+  onlyWhenUpdatesAvailable: z.boolean().optional(),
   staggerSeconds: z.number().int().min(0).max(3600).optional(),
   runNow: z.boolean().optional(),
 });
@@ -52,6 +53,9 @@ export async function PATCH(
           cron,
           containerIds: body.containerIds ?? a.containerIds,
           onlyRunning: body.onlyRunning ?? a.onlyRunning,
+          checkBeforeRun: body.checkBeforeRun ?? a.checkBeforeRun,
+          onlyWhenUpdatesAvailable:
+            body.onlyWhenUpdatesAvailable ?? a.onlyWhenUpdatesAvailable,
           staggerSeconds: body.staggerSeconds ?? a.staggerSeconds,
           updatedAt: new Date().toISOString(),
         };

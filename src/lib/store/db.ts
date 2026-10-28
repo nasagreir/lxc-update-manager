@@ -22,10 +22,16 @@ function mergeState(raw: Partial<AppState> | null): AppState {
   if (settings.nodeSshHosts == null) {
     settings.nodeSshHosts = "";
   }
+  const automations = (raw?.automations ?? []).map((a) => ({
+    ...a,
+    checkBeforeRun: a.checkBeforeRun ?? false,
+    onlyWhenUpdatesAvailable: a.onlyWhenUpdatesAvailable ?? false,
+  }));
   return {
     settings,
-    automations: raw?.automations ?? [],
+    automations,
     jobs: raw?.jobs ?? [],
+    apiKeys: raw?.apiKeys ?? [],
     containerMeta: raw?.containerMeta ?? {},
   };
 }

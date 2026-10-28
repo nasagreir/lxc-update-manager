@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Boxes, Clock3, ScrollText, Settings2 } from "lucide-react";
+import { Boxes, Clock3, KeyRound, ScrollText, Settings2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ContainersPanel } from "@/components/dashboard/containers-panel";
 import { JobsPanel } from "@/components/dashboard/jobs-panel";
 import { AutomationsPanel } from "@/components/dashboard/automations-panel";
+import { ApiKeysPanel } from "@/components/dashboard/api-keys-panel";
 import { SettingsPanel } from "@/components/dashboard/settings-panel";
 import { JobLogDialog } from "@/components/dashboard/job-log-dialog";
 import type { Automation, LxcContainer, UpdateJob } from "@/lib/types";
@@ -200,6 +201,10 @@ export function AppShell() {
             <Clock3 className="size-4" />
             Automations
           </TabsTrigger>
+          <TabsTrigger value="api-keys" className="gap-1.5">
+            <KeyRound className="size-4" />
+            API keys
+          </TabsTrigger>
           <TabsTrigger value="settings" className="gap-1.5">
             <Settings2 className="size-4" />
             Settings
@@ -236,6 +241,9 @@ export function AppShell() {
               await loadJobs();
             }}
           />
+        </TabsContent>
+        <TabsContent value="api-keys" className="flex-1">
+          <ApiKeysPanel />
         </TabsContent>
         <TabsContent value="settings" className="flex-1">
           <SettingsPanel onSaved={refreshAll} />

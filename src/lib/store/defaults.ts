@@ -23,6 +23,7 @@ export const DEFAULT_STATE: AppState = {
   settings: DEFAULT_SETTINGS,
   automations: [],
   jobs: [],
+  apiKeys: [],
   containerMeta: {},
 };
 

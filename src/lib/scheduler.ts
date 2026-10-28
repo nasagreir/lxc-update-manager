@@ -1,6 +1,10 @@
 import { schedule, validate, type ScheduledTask } from "node-cron";
 import { readState, updateState } from "@/lib/store/db";
-import { enqueueUpdates, getContainers } from "@/lib/updater";
+import {
+  checkUpdatesForContainers,
+  enqueueUpdates,
+  getContainers,
+} from "@/lib/updater";
 import type { Automation, SchedulePreset } from "@/lib/types";
 
 const tasks = new Map<string, ScheduledTask>();
@@ -33,7 +37,12 @@ async function runAutomation(automationId: string) {
   const automation = state.automations.find((a) => a.id === automationId);
   if (!automation || !automation.enabled) return;
 
-  const containers = await getContainers();
+  let containers = await getContainers();
+
+  if (automation.checkBeforeRun) {
+    containers = await checkUpdatesForContainers(containers);
+  }
+
   let targets = containers.filter((c) => {
     if (automation.containerIds.length > 0) {
       return automation.containerIds.includes(c.vmid);
@@ -45,13 +54,17 @@ async function runAutomation(automationId: string) {
     targets = targets.filter((c) => c.status === "running");
   }
 
+  if (automation.onlyWhenUpdatesAvailable) {
+    targets = targets.filter((c) => c.updateAvailable === true);
+  }
+
+  const finishedAt = new Date().toISOString();
+
   if (targets.length === 0) {
     await updateState((s) => ({
       ...s,
       automations: s.automations.map((a) =>
-        a.id === automationId
-          ? { ...a, lastRunAt: new Date().toISOString() }
-          : a,
+        a.id === automationId ? { ...a, lastRunAt: finishedAt } : a,
       ),
     }));
     return;
@@ -67,9 +80,7 @@ async function runAutomation(automationId: string) {
   await updateState((s) => ({
     ...s,
     automations: s.automations.map((a) =>
-      a.id === automationId
-        ? { ...a, lastRunAt: new Date().toISOString() }
-        : a,
+      a.id === automationId ? { ...a, lastRunAt: finishedAt } : a,
     ),
   }));
 }

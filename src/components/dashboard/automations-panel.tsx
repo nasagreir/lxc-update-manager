@@ -41,6 +41,9 @@ export function AutomationsPanel({
   const [preset, setPreset] = useState<SchedulePreset>("daily");
   const [cron, setCron] = useState("0 3 * * *");
   const [onlyRunning, setOnlyRunning] = useState(true);
+  const [checkBeforeRun, setCheckBeforeRun] = useState(true);
+  const [onlyWhenUpdatesAvailable, setOnlyWhenUpdatesAvailable] =
+    useState(true);
   const [stagger, setStagger] = useState(30);
   const [selected, setSelected] = useState<number[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +53,8 @@ export function AutomationsPanel({
     setPreset("daily");
     setCron("0 3 * * *");
     setOnlyRunning(true);
+    setCheckBeforeRun(true);
+    setOnlyWhenUpdatesAvailable(true);
     setStagger(30);
     setSelected([]);
     setError(null);
@@ -69,6 +74,8 @@ export function AutomationsPanel({
           cron: preset === "custom" ? cron : undefined,
           containerIds: selected,
           onlyRunning,
+          checkBeforeRun,
+          onlyWhenUpdatesAvailable,
           staggerSeconds: stagger,
         }),
       });
@@ -122,9 +129,8 @@ export function AutomationsPanel({
     <div className="space-y-4 animate-fade-up">
       <div className="flex items-center justify-between gap-3">
         <p className="max-w-xl text-sm text-muted-foreground">
-          Schedules run the same update path as the UI: community helper-script{" "}
-          <code className="font-mono text-xs">update</code> with prompt answers,
-          or apt/apk when detected.
+          Cron-driven updates across the cluster. Prefer “only when updates
+          available” so schedules re-check and skip CTs that are already current.
         </p>
         <Button
           size="sm"
@@ -164,6 +170,8 @@ export function AutomationsPanel({
                     : `${a.containerIds.length} selected CT(s)`}
                   {" · "}
                   stagger {a.staggerSeconds}s
+                  {a.onlyWhenUpdatesAvailable ? " · only if outdated" : ""}
+                  {a.checkBeforeRun ? " · check first" : ""}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Last run: {formatRelative(a.lastRunAt)}
@@ -252,13 +260,35 @@ export function AutomationsPanel({
                 onChange={(e) => setStagger(Number(e.target.value))}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={onlyRunning}
-                onCheckedChange={setOnlyRunning}
-                id="only-running"
-              />
-              <Label htmlFor="only-running">Only running containers</Label>
+            <div className="space-y-3 rounded-md border bg-slate-50/80 p-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={onlyRunning}
+                  onCheckedChange={setOnlyRunning}
+                  id="only-running"
+                />
+                <Label htmlFor="only-running">Only running containers</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={checkBeforeRun}
+                  onCheckedChange={setCheckBeforeRun}
+                  id="check-first"
+                />
+                <Label htmlFor="check-first">
+                  Check for updates before running
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={onlyWhenUpdatesAvailable}
+                  onCheckedChange={setOnlyWhenUpdatesAvailable}
+                  id="only-available"
+                />
+                <Label htmlFor="only-available">
+                  Only update CTs with updates available
+                </Label>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>
@@ -270,7 +300,7 @@ export function AutomationsPanel({
               <div className="max-h-40 space-y-2 overflow-y-auto rounded-md border p-2">
                 {containers.map((c) => (
                   <label
-                    key={c.vmid}
+                    key={`${c.node}-${c.vmid}`}
                     className="flex cursor-pointer items-center gap-2 text-sm"
                   >
                     <Checkbox
@@ -281,6 +311,9 @@ export function AutomationsPanel({
                       {c.vmid}
                     </span>
                     {c.name}
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {c.node}
+                    </span>
                   </label>
                 ))}
               </div>

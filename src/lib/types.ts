@@ -9,7 +9,7 @@ export type JobStatus =
   | "failed"
   | "cancelled";
 
-export type TriggerSource = "manual" | "automation";
+export type TriggerSource = "manual" | "automation" | "api";
 
 export interface LxcContainer {
   vmid: number;
@@ -61,12 +61,29 @@ export interface Automation {
   containerIds: number[];
   /** Skip containers that are stopped. */
   onlyRunning: boolean;
+  /** Re-check for updates before selecting targets. */
+  checkBeforeRun: boolean;
+  /** Only enqueue CTs that currently have updateAvailable === true. */
+  onlyWhenUpdatesAvailable: boolean;
   /** Stagger starts by this many seconds between containers. */
   staggerSeconds: number;
   createdAt: string;
   updatedAt: string;
   lastRunAt: string | null;
   nextRunAt: string | null;
+}
+
+/** Stored API key metadata — raw secret is never persisted. */
+export interface ApiKeyRecord {
+  id: string;
+  name: string;
+  /** First characters of the key for identification (e.g. lxcu_abcd…). */
+  prefix: string;
+  /** SHA-256 hex of the full key. */
+  keyHash: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
 }
 
 export interface AppSettings {
@@ -122,6 +139,7 @@ export interface AppState {
   settings: AppSettings;
   automations: Automation[];
   jobs: UpdateJob[];
+  apiKeys: ApiKeyRecord[];
   /** Cached container enrichments (update method, last update, availability). */
   containerMeta: Record<
     string,

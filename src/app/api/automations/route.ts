@@ -5,7 +5,6 @@ import { readState, updateState } from "@/lib/store/db";
 import { presetToCron, refreshSchedules } from "@/lib/scheduler";
 import type { Automation } from "@/lib/types";
 
-
 const createSchema = z.object({
   name: z.string().min(1).max(120),
   enabled: z.boolean().default(true),
@@ -13,6 +12,8 @@ const createSchema = z.object({
   cron: z.string().optional(),
   containerIds: z.array(z.number().int().positive()).default([]),
   onlyRunning: z.boolean().default(true),
+  checkBeforeRun: z.boolean().default(true),
+  onlyWhenUpdatesAvailable: z.boolean().default(true),
   staggerSeconds: z.number().int().min(0).max(3600).default(30),
 });
 
@@ -38,6 +39,8 @@ export async function POST(request: Request) {
       schedulePreset: body.schedulePreset,
       containerIds: body.containerIds,
       onlyRunning: body.onlyRunning,
+      checkBeforeRun: body.checkBeforeRun,
+      onlyWhenUpdatesAvailable: body.onlyWhenUpdatesAvailable,
       staggerSeconds: body.staggerSeconds,
       createdAt: now,
       updatedAt: now,

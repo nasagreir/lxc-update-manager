@@ -7,6 +7,7 @@ Type=simple
 WorkingDirectory=/opt/lxc-updater
 Environment=NODE_ENV=production
 Environment=PORT=3847
+Environment=LXC_UPDATER_DATA_DIR=/opt/lxc-updater-data
 ExecStart=/usr/bin/npm run start
 Restart=on-failure
 RestartSec=5

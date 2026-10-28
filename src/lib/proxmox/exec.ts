@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import { resolveSshHostForNode } from "@/lib/proxmox/nodes";
 import type { AppSettings } from "@/lib/types";
 
 export interface ExecResult {
@@ -51,13 +52,15 @@ function runProcess(
 }
 
 /**
- * Run a command inside an LXC via `pct exec` on the Proxmox host.
+ * Run a command inside an LXC via `pct exec` on the CT's Proxmox node.
+ * Multi-node: SSH target is resolved per node via nodeSshHosts / sshHost.
  */
 export async function pctExec(
   settings: AppSettings,
   vmid: number,
   remoteCommand: string[],
   timeoutSeconds?: number,
+  node?: string,
 ): Promise<ExecResult> {
   const timeoutMs = (timeoutSeconds ?? settings.updateTimeoutSeconds) * 1000;
   const pctArgs = ["exec", String(vmid), "--", ...remoteCommand];
@@ -66,7 +69,7 @@ export async function pctExec(
     return runProcess("pct", pctArgs, timeoutMs);
   }
 
-  // SSH to Proxmox host and run pct exec
+  const sshHost = resolveSshHostForNode(settings, node || "");
   const sshArgs = [
     "-o",
     "BatchMode=yes",
@@ -76,7 +79,7 @@ export async function pctExec(
     String(settings.sshPort),
     "-i",
     settings.sshPrivateKeyPath,
-    `${settings.sshUser}@${settings.sshHost}`,
+    `${settings.sshUser}@${sshHost}`,
     "pct",
     ...pctArgs,
   ];
@@ -125,6 +128,7 @@ function shellQuote(value: string): string {
 export async function detectUpdateMethod(
   settings: AppSettings,
   vmid: number,
+  node?: string,
 ): Promise<"community-script" | "apt" | "apk" | "unknown"> {
   if (settings.mockMode) {
     return "unknown";
@@ -144,6 +148,7 @@ export async function detectUpdateMethod(
       ].join("; "),
     ],
     60,
+    node,
   );
 
   const line = detect.stdout.trim().split("\n").pop()?.trim();

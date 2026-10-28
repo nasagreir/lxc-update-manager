@@ -12,6 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { LxcContainer } from "@/lib/types";
 import { formatRelative, methodLabel, statusTone } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -37,20 +44,31 @@ export function ContainersPanel({
 }) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [query, setQuery] = useState("");
+  const [nodeFilter, setNodeFilter] = useState<string>("all");
+
+  const nodes = useMemo(() => {
+    return [...new Set(containers.map((c) => c.node))].sort();
+  }, [containers]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return containers;
-    return containers.filter(
-      (c) =>
+    return containers.filter((c) => {
+      if (nodeFilter !== "all" && c.node !== nodeFilter) return false;
+      if (!q) return true;
+      return (
         c.name.toLowerCase().includes(q) ||
         String(c.vmid).includes(q) ||
+        c.node.toLowerCase().includes(q) ||
         c.tags.some((t) => t.toLowerCase().includes(q)) ||
-        c.updateMethod.includes(q),
-    );
-  }, [containers, query]);
+        c.updateMethod.includes(q)
+      );
+    });
+  }, [containers, query, nodeFilter]);
 
   const availableCount = containers.filter((c) => c.updateAvailable).length;
+  const selectedAvailable = filtered.filter(
+    (c) => selected.has(c.vmid) && c.updateAvailable,
+  );
 
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((c) => selected.has(c.vmid));
@@ -72,19 +90,32 @@ export function ContainersPanel({
     });
   }
 
-  const selectedList = [...selected];
-
   return (
     <div className="space-y-4 animate-fade-up">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-md flex-1">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by name, VMID, tag…"
-            className="pl-9 bg-white/70"
-          />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative max-w-md flex-1">
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search by name, VMID, node, tag…"
+              className="pl-9 bg-white/70"
+            />
+          </div>
+          <Select value={nodeFilter} onValueChange={setNodeFilter}>
+            <SelectTrigger className="w-full bg-white/70 sm:w-44">
+              <SelectValue placeholder="All nodes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All nodes</SelectItem>
+              {nodes.map((n) => (
+                <SelectItem key={n} value={n}>
+                  {n}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -122,11 +153,14 @@ export function ContainersPanel({
           </Button>
           <Button
             size="sm"
-            disabled={selectedList.length === 0 || updating}
-            onClick={() => void onUpdate(selectedList)}
+            disabled={selectedAvailable.length === 0 || updating}
+            onClick={() =>
+              void onUpdate(selectedAvailable.map((c) => c.vmid))
+            }
+            title="Updates only the selected containers that have updates available"
           >
             {updating ? <Loader2 className="animate-spin" /> : <ArrowUpCircle />}
-            Update selected ({selectedList.length})
+            Update selected ({selectedAvailable.length})
           </Button>
         </div>
       </div>
@@ -149,7 +183,7 @@ export function ContainersPanel({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border/80 bg-white/75 shadow-sm backdrop-blur-sm">
-          <table className="w-full min-w-[780px] text-sm">
+          <table className="w-full min-w-[820px] text-sm">
             <thead>
               <tr className="border-b bg-slate-50/80 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="w-10 px-3 py-3">
@@ -161,6 +195,7 @@ export function ContainersPanel({
                 </th>
                 <th className="px-3 py-3 font-medium">CT</th>
                 <th className="px-3 py-3 font-medium">Name</th>
+                <th className="px-3 py-3 font-medium">Node</th>
                 <th className="px-3 py-3 font-medium">Status</th>
                 <th className="px-3 py-3 font-medium">Method</th>
                 <th className="px-3 py-3 font-medium">Last checked</th>
@@ -170,7 +205,7 @@ export function ContainersPanel({
             <tbody>
               {filtered.map((c, i) => (
                 <tr
-                  key={c.vmid}
+                  key={`${c.node}-${c.vmid}`}
                   className={cn(
                     "border-b border-border/60 transition-colors hover:bg-teal-50/40",
                     c.updateAvailable && "bg-red-50/40",
@@ -207,10 +242,12 @@ export function ContainersPanel({
                     )}
                   </td>
                   <td className="px-3 py-3">
-                    <Badge
-                      variant="outline"
-                      className={statusTone(c.status)}
-                    >
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {c.node}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <Badge variant="outline" className={statusTone(c.status)}>
                       {c.status === "running" && (
                         <span className="mr-1 inline-block size-1.5 rounded-full bg-emerald-500 animate-pulse-soft" />
                       )}
@@ -231,11 +268,23 @@ export function ContainersPanel({
                     )}
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <UpdateActionButton
-                      container={c}
-                      updating={updating}
-                      onUpdate={() => void onUpdate([c.vmid])}
-                    />
+                    {c.updateAvailable ? (
+                      <Button
+                        size="sm"
+                        disabled={
+                          updating ||
+                          c.status !== "running" ||
+                          c.updateMethod === "unknown"
+                        }
+                        onClick={() => void onUpdate([c.vmid])}
+                        title={c.updateAvailableDetail ?? "Updates available"}
+                        className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600/40"
+                      >
+                        Update available
+                      </Button>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -244,59 +293,5 @@ export function ContainersPanel({
         </div>
       )}
     </div>
-  );
-}
-
-function UpdateActionButton({
-  container: c,
-  updating,
-  onUpdate,
-}: {
-  container: LxcContainer;
-  updating: boolean;
-  onUpdate: () => void;
-}) {
-  const disabled =
-    updating || c.status !== "running" || c.updateMethod === "unknown";
-
-  if (c.updateAvailable) {
-    return (
-      <Button
-        size="sm"
-        disabled={disabled}
-        onClick={onUpdate}
-        title={c.updateAvailableDetail ?? "Updates available"}
-        className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600/40"
-      >
-        Update available
-      </Button>
-    );
-  }
-
-  if (c.updateAvailable === false) {
-    return (
-      <Button
-        size="sm"
-        variant="outline"
-        disabled={disabled}
-        onClick={onUpdate}
-        title="Force update anyway"
-        className="text-muted-foreground"
-      >
-        Up to date
-      </Button>
-    );
-  }
-
-  return (
-    <Button
-      size="sm"
-      variant="secondary"
-      disabled={disabled}
-      onClick={onUpdate}
-      title="Check for updates to see if this CT is outdated"
-    >
-      Update
-    </Button>
   );
 }

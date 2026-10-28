@@ -1,4 +1,5 @@
 import type { AppSettings, ContainerStatus, LxcContainer } from "@/lib/types";
+import { parseIncludeNodes } from "@/lib/proxmox/nodes";
 import { MOCK_CONTAINERS } from "@/lib/store/defaults";
 
 interface PveLxcEntry {
@@ -117,8 +118,12 @@ function mapStatus(status?: string): ContainerStatus {
 }
 
 export async function listNodes(settings: AppSettings): Promise<string[]> {
+  if (settings.mockMode) {
+    const fromMock = [...new Set(MOCK_CONTAINERS.map((c) => c.node))];
+    return fromMock.sort();
+  }
   const nodes = await pveFetchSafe<PveNode[]>(settings, "/nodes");
-  return nodes.map((n) => n.node);
+  return nodes.map((n) => n.node).sort();
 }
 
 type LxcInventory = Omit<
@@ -136,9 +141,18 @@ type LxcInventory = Omit<
 export async function listLxcFromProxmox(
   settings: AppSettings,
 ): Promise<LxcInventory[]> {
-  const nodeNames = settings.defaultNode
-    ? [settings.defaultNode]
-    : await listNodes(settings);
+  const include = parseIncludeNodes(settings);
+  const clusterNodes = await listNodes(settings);
+  const nodeNames =
+    include.length > 0
+      ? clusterNodes.filter((n) => include.includes(n))
+      : clusterNodes;
+
+  if (include.length > 0 && nodeNames.length === 0) {
+    throw new Error(
+      `None of the configured includeNodes (${include.join(", ")}) were found in the cluster (${clusterNodes.join(", ") || "none"}).`,
+    );
+  }
 
   const all: LxcInventory[] = [];
 
@@ -162,24 +176,25 @@ export async function listLxcFromProxmox(
     }
   }
 
-  return all.sort((a, b) => a.vmid - b.vmid);
+  return all.sort((a, b) => a.node.localeCompare(b.node) || a.vmid - b.vmid);
 }
 
 export async function listContainers(
   settings: AppSettings,
 ): Promise<LxcInventory[]> {
   if (settings.mockMode) {
-    return MOCK_CONTAINERS.map(
-      ({
-        vmid,
-        name,
-        status,
-        node,
-        cpus,
-        memoryMb,
-        tags,
-      }) => ({ vmid, name, status, node, cpus, memoryMb, tags }),
-    );
+    const include = parseIncludeNodes(settings);
+    return MOCK_CONTAINERS.filter(
+      (c) => include.length === 0 || include.includes(c.node),
+    ).map(({ vmid, name, status, node, cpus, memoryMb, tags }) => ({
+      vmid,
+      name,
+      status,
+      node,
+      cpus,
+      memoryMb,
+      tags,
+    }));
   }
   return listLxcFromProxmox(settings);
 }

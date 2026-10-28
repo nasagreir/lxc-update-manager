@@ -127,6 +127,7 @@ export function AppShell() {
   }
 
   const runningCount = containers.filter((c) => c.status === "running").length;
+  const nodeCount = new Set(containers.map((c) => c.node)).size;
   const availableCount = containers.filter((c) => c.updateAvailable).length;
   const activeJobs = jobs.filter(
     (j) => j.status === "queued" || j.status === "running",
@@ -144,7 +145,7 @@ export function AppShell() {
               LXC Updater
             </h1>
             <p className="mt-2 max-w-xl text-sm text-slate-600 sm:text-base">
-              Check every container on the node, run community helper-script{" "}
+              Check LXCs across your cluster, run community helper-script{" "}
               <span className="font-mono text-[0.9em]">update</span> from the
               browser, and schedule unattended upgrades.
             </p>
@@ -161,6 +162,11 @@ export function AppShell() {
             <Badge variant="secondary">
               {runningCount}/{containers.length} running
             </Badge>
+            {nodeCount > 0 && (
+              <Badge variant="outline">
+                {nodeCount} node{nodeCount === 1 ? "" : "s"}
+              </Badge>
+            )}
             {availableCount > 0 && (
               <Badge className="bg-red-600 text-white hover:bg-red-600">
                 {availableCount} update{availableCount === 1 ? "" : "s"} available
@@ -243,7 +249,7 @@ export function AppShell() {
       />
 
       <footer className="mt-10 border-t border-border/60 pt-4 text-xs text-muted-foreground">
-        Runs inside an LXC on your Proxmox node. Data persists under{" "}
+        Runs inside an LXC on your Proxmox cluster. Data persists under{" "}
         <code className="font-mono">data/</code>.
       </footer>
     </div>

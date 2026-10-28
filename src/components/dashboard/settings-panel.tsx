@@ -26,11 +26,13 @@ const empty: SettingsForm = {
   apiTokenId: "",
   apiTokenSecret: "",
   defaultNode: "",
+  includeNodes: "",
   execMode: "ssh",
   sshHost: "",
   sshPort: 22,
   sshUser: "root",
   sshPrivateKeyPath: "/root/.ssh/id_ed25519",
+  nodeSshHosts: "",
   updateTimeoutSeconds: 1800,
   communityScriptAnswers: "y\ny\ny\ny\ny\ny\ny\ny\n",
 };
@@ -139,14 +141,19 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
               onChange={(e) => set("proxmoxPort", Number(e.target.value))}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="node">Default node (optional)</Label>
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="include-nodes">Nodes to include</Label>
             <Input
-              id="node"
-              value={form.defaultNode}
-              onChange={(e) => set("defaultNode", e.target.value)}
-              placeholder="pve"
+              id="include-nodes"
+              value={form.includeNodes}
+              onChange={(e) => set("includeNodes", e.target.value)}
+              placeholder="Leave empty for all nodes, or: pve1, pve2"
+              className="font-mono text-sm"
             />
+            <p className="text-xs text-muted-foreground">
+              Multi-node clusters: leave blank to scan every node, or list node
+              names separated by commas.
+            </p>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label htmlFor="token-id">API token ID</Label>
@@ -189,9 +196,9 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
           <h3 className="font-semibold">Command execution</h3>
           <p className="text-sm text-muted-foreground">
             Updates run via <code className="font-mono text-xs">pct exec</code>{" "}
-            on the Proxmox host — either over SSH from this LXC, or locally if
-            you mount/host the <code className="font-mono text-xs">pct</code>{" "}
-            tool.
+            on the CT&apos;s Proxmox node. For multi-node clusters, map each node
+            to an SSH address below — <code className="font-mono text-xs">pct</code>{" "}
+            only works on the node that owns the container.
           </p>
         </div>
         <div className="space-y-2">
@@ -204,19 +211,20 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ssh">SSH to Proxmox host → pct exec</SelectItem>
-              <SelectItem value="local">Local pct (privileged LXC)</SelectItem>
+              <SelectItem value="ssh">SSH to each CT&apos;s node → pct exec</SelectItem>
+              <SelectItem value="local">Local pct (same-node CTs only)</SelectItem>
             </SelectContent>
           </Select>
         </div>
         {form.execMode === "ssh" && (
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="ssh-host">SSH host</Label>
+              <Label htmlFor="ssh-host">Fallback SSH host</Label>
               <Input
                 id="ssh-host"
                 value={form.sshHost}
                 onChange={(e) => set("sshHost", e.target.value)}
+                placeholder="Used when a node has no mapping"
               />
             </div>
             <div className="space-y-2">
@@ -244,6 +252,21 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
                 onChange={(e) => set("sshPrivateKeyPath", e.target.value)}
                 className="font-mono text-sm"
               />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="node-ssh">Per-node SSH hosts</Label>
+              <Textarea
+                id="node-ssh"
+                value={form.nodeSshHosts}
+                onChange={(e) => set("nodeSshHosts", e.target.value)}
+                rows={4}
+                className="font-mono text-sm"
+                placeholder={"pve1=192.168.1.10\npve2=192.168.1.11\npve3=192.168.1.12"}
+              />
+              <p className="text-xs text-muted-foreground">
+                One <code className="font-mono">nodename=host</code> per line.
+                Required when containers live on more than one node.
+              </p>
             </div>
           </div>
         )}

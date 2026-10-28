@@ -146,6 +146,7 @@ export async function checkContainerUpdates(
   settings: AppSettings,
   vmid: number,
   method: UpdateMethod,
+  node?: string,
 ): Promise<UpdateAvailability> {
   const checkedAt = new Date().toISOString();
 
@@ -169,6 +170,7 @@ export async function checkContainerUpdates(
     vmid,
     ["bash", "-lc", script],
     180,
+    node,
   );
 
   if (result.timedOut) {

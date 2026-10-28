@@ -103,7 +103,11 @@ export async function getContainers(opts?: {
   if (opts?.refreshMethods && !state.settings.mockMode) {
     for (const c of containers.filter((x) => x.status === "running")) {
       try {
-        const method = await detectUpdateMethod(state.settings, c.vmid);
+        const method = await detectUpdateMethod(
+          state.settings,
+          c.vmid,
+          c.node,
+        );
         const checkedAt = new Date().toISOString();
         await updateState((s) => {
           const prev = s.containerMeta[String(c.vmid)];
@@ -152,12 +156,13 @@ export async function checkUpdatesForContainers(
     try {
       let method = c.updateMethod;
       if (method === "unknown" && !state.settings.mockMode) {
-        method = await detectUpdateMethod(state.settings, c.vmid);
+        method = await detectUpdateMethod(state.settings, c.vmid, c.node);
       }
       const result = await checkContainerUpdates(
         state.settings,
         c.vmid,
         method,
+        c.node,
       );
       await updateState((s) => {
         const prev = s.containerMeta[String(c.vmid)];
@@ -259,7 +264,11 @@ async function runRealUpdate(
 
   if (method === "unknown") {
     await appendJobLog(jobId, "Detecting update method…\n");
-    method = await detectUpdateMethod(state.settings, container.vmid);
+    method = await detectUpdateMethod(
+      state.settings,
+      container.vmid,
+      container.node,
+    );
     await appendJobLog(jobId, `Detected: ${method}\n`);
   }
 
@@ -288,11 +297,14 @@ async function runRealUpdate(
     return { ok: false, method };
   }
 
-  const result = await pctExec(state.settings, container.vmid, [
-    "bash",
-    "-lc",
-    script,
-  ]);
+  await appendJobLog(jobId, `Node: ${container.node}\n`);
+  const result = await pctExec(
+    state.settings,
+    container.vmid,
+    ["bash", "-lc", script],
+    undefined,
+    container.node,
+  );
 
   if (result.stdout) await appendJobLog(jobId, result.stdout.endsWith("\n") ? result.stdout : `${result.stdout}\n`);
   if (result.stderr) await appendJobLog(jobId, result.stderr.endsWith("\n") ? result.stderr : `${result.stderr}\n`);

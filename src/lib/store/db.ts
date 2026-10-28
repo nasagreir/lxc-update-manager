@@ -14,8 +14,16 @@ async function ensureDataDir() {
 }
 
 function mergeState(raw: Partial<AppState> | null): AppState {
+  const settings = { ...DEFAULT_STATE.settings, ...(raw?.settings ?? {}) };
+  // Migrate legacy defaultNode → includeNodes when includeNodes is empty.
+  if (!settings.includeNodes?.trim() && settings.defaultNode?.trim()) {
+    settings.includeNodes = settings.defaultNode.trim();
+  }
+  if (settings.nodeSshHosts == null) {
+    settings.nodeSshHosts = "";
+  }
   return {
-    settings: { ...DEFAULT_STATE.settings, ...(raw?.settings ?? {}) },
+    settings,
     automations: raw?.automations ?? [],
     jobs: raw?.jobs ?? [],
     containerMeta: raw?.containerMeta ?? {},

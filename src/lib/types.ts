@@ -80,19 +80,35 @@ export interface AppSettings {
   apiTokenId: string;
   /** Token secret — stored in data/settings.json on disk. */
   apiTokenSecret: string;
-  /** Node name; leave blank to query all nodes. */
+  /**
+   * Legacy single-node filter. Migrated into includeNodes when loading older state.
+   * @deprecated use includeNodes
+   */
   defaultNode: string;
   /**
+   * Comma/whitespace-separated Proxmox node names to include.
+   * Empty = all cluster nodes.
+   */
+  includeNodes: string;
+  /**
    * How to run commands inside LXCs.
-   * - ssh: SSH to the Proxmox host and run `pct exec`
-   * - local: run `pct` on this host (privileged LXC with host tools)
+   * - ssh: SSH to each CT's node and run `pct exec`
+   * - local: run `pct` on this host (only CTs on the same node)
    */
   execMode: "ssh" | "local";
+  /** Fallback SSH host when a node has no entry in nodeSshHosts. */
   sshHost: string;
   sshPort: number;
   sshUser: string;
   /** Absolute path to private key inside this app container. */
   sshPrivateKeyPath: string;
+  /**
+   * Per-node SSH targets (required for multi-node: pct must run on the CT's node).
+   * One `nodename=host` per line. Example:
+   *   pve1=192.168.1.10
+   *   pve2=192.168.1.11
+   */
+  nodeSshHosts: string;
   /** Seconds before an in-container update is killed. */
   updateTimeoutSeconds: number;
   /**

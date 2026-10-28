@@ -99,12 +99,16 @@ STORAGE="${STORAGE:-}"
 PASSWORD="${PASSWORD:-}"
 SSH_PUBLISH="${SSH_PUBLISH:-1}"
 UNPRIVILEGED="${UNPRIVILEGED:-1}"
+ENABLE_SSH_SERVER="${ENABLE_SSH_SERVER:-0}"
 FEATURES="keyctl=1,nesting=1"
 
 header_info
 
-echo -e "${INFO} This creates a Debian LXC, installs ${APP}, and starts the web UI."
-echo -e "${INFO} Community helper-script CTs can later be updated from that UI."
+echo -e "${INFO} This installer will:"
+echo -e "${TAB}• create a Debian LXC from the official template"
+echo -e "${TAB}• fully provision the guest OS (packages, locale, time sync, Node.js 22)"
+echo -e "${TAB}• build ${APP}, enable systemd, and install the console ${BL}update${CL} command"
+echo -e "${INFO} Afterwards you can manage other helper-script CTs from the web UI."
 echo
 
 # --- mode selection ---------------------------------------------------------
@@ -162,6 +166,11 @@ prompt_advanced() {
     *) UNPRIVILEGED=1 ;;
   esac
   read -r -p "Web UI port [${APP_PORT}]: " input && APP_PORT="${input:-$APP_PORT}"
+  read -r -p "Install OpenSSH server inside the CT? [y/N]: " input
+  case "${input:-N}" in
+    y|Y|yes|Yes) ENABLE_SSH_SERVER=1 ;;
+    *) ENABLE_SSH_SERVER=0 ;;
+  esac
 }
 
 if [[ "$INSTALL_MODE" == "advanced" ]]; then
@@ -192,6 +201,8 @@ echo -e "${TAB}Storage   : ${BL}${STORAGE}${CL}"
 echo -e "${TAB}Resources : ${BL}${CORE} CPU / ${RAM} MB / ${DISK} GB${CL}"
 echo -e "${TAB}Network   : ${BL}${BRIDGE} / ${NET}${CL}"
 echo -e "${TAB}Port      : ${BL}${APP_PORT}${CL}"
+echo -e "${TAB}Guest OS  : ${BL}Debian ${OS_VERSION} (full provision: apt, locale, chrony, Node ${BL}22${CL})"
+echo -e "${TAB}SSH server: ${BL}$([[ "$ENABLE_SSH_SERVER" == "1" ]] && echo yes || echo no — client only)${CL}"
 if [[ -n "$REPO_ROOT" && -z "${LXC_UPDATER_REPO:-}" ]]; then
   echo -e "${TAB}Source    : ${BL}local checkout ${REPO_ROOT}${CL}"
 else
@@ -268,23 +279,47 @@ msg_ok "Created CT ${CTID}"
 
 msg_info "Starting CT ${CTID}"
 pct start "$CTID"
-# Wait for network / init
-for i in $(seq 1 30); do
+# Wait for systemd / pct exec
+for i in $(seq 1 60); do
   if pct exec "$CTID" -- true 2>/dev/null; then
     break
   fi
   sleep 1
+  if [[ $i -eq 60 ]]; then
+    msg_error "CT ${CTID} did not become reachable via pct exec"
+    exit 1
+  fi
 done
 msg_ok "CT ${CTID} is running"
 
-# --- copy / clone application ----------------------------------------------
-msg_info "Installing application into CT"
+msg_info "Waiting for guest network (DHCP/DNS)"
+for i in $(seq 1 60); do
+  if pct exec "$CTID" -- bash -lc 'getent hosts deb.debian.org >/dev/null 2>&1 || ping -c1 -W1 1.1.1.1 >/dev/null 2>&1'; then
+    break
+  fi
+  sleep 1
+  if [[ $i -eq 60 ]]; then
+    msg_error "Guest has no network — check bridge ${BRIDGE} / DHCP"
+    exit 1
+  fi
+done
+msg_ok "Guest network is ready"
+
+# --- provision Debian + install application ---------------------------------
+msg_info "Provisioning Debian environment and installing ${APP}"
 pct exec "$CTID" -- mkdir -p /opt/lxc-updater /opt/lxc-updater-data /root/.lxc-updater-install
 
-SETUP_SCRIPT=""
+HOST_TZ="$(timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo UTC)"
+SETUP_ENV=(
+  "APP_PORT=${APP_PORT}"
+  "ENABLE_SSH_SERVER=${ENABLE_SSH_SERVER}"
+  "TZ=${HOST_TZ}"
+  "LXC_UPDATER_BRANCH=${REPO_BRANCH}"
+)
+
 if [[ -n "$REPO_ROOT" && -f "$REPO_ROOT/install/in-container-setup.sh" ]]; then
-  SETUP_SCRIPT="$REPO_ROOT/install/in-container-setup.sh"
-  pct push "$CTID" "$SETUP_SCRIPT" /root/.lxc-updater-install/in-container-setup.sh
+  pct push "$CTID" "$REPO_ROOT/install/in-container-setup.sh" \
+    /root/.lxc-updater-install/in-container-setup.sh
   # Copy project tree (exclude bulky/dev artifacts)
   tar -C "$REPO_ROOT" \
     --exclude='./node_modules' \
@@ -293,24 +328,33 @@ if [[ -n "$REPO_ROOT" && -f "$REPO_ROOT/install/in-container-setup.sh" ]]; then
     -czf - . \
     | pct exec "$CTID" -- tar -C /opt/lxc-updater -xzf -
   pct exec "$CTID" -- bash -lc \
-    "chmod +x /root/.lxc-updater-install/in-container-setup.sh; APP_PORT=${APP_PORT} /root/.lxc-updater-install/in-container-setup.sh"
+    "chmod +x /root/.lxc-updater-install/in-container-setup.sh; ${SETUP_ENV[*]} /root/.lxc-updater-install/in-container-setup.sh"
 else
-  # Fetch setup script from repo raw path if possible, else embed minimal clone flow
-  pct exec "$CTID" -- bash -lc "apt-get update -y && apt-get install -y git curl ca-certificates"
-  # Push a bootstrap that clones then runs in-container-setup from the repo
-  pct exec "$CTID" -- env LXC_UPDATER_REPO="$REPO_URL" LXC_UPDATER_BRANCH="$REPO_BRANCH" APP_PORT="$APP_PORT" bash -s <<'BOOT'
+  # Clone into the CT, then run the same full guest provisioner
+  pct exec "$CTID" -- env \
+    LXC_UPDATER_REPO="$REPO_URL" \
+    LXC_UPDATER_BRANCH="$REPO_BRANCH" \
+    APP_PORT="$APP_PORT" \
+    ENABLE_SSH_SERVER="$ENABLE_SSH_SERVER" \
+    TZ="$HOST_TZ" \
+    bash -s <<'BOOT'
 set -euo pipefail
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -y
+apt-get install -y --no-install-recommends ca-certificates curl git
 TMP=$(mktemp -d)
 git clone --depth 1 --branch "${LXC_UPDATER_BRANCH:-main}" "$LXC_UPDATER_REPO" "$TMP/src"
-# Keep a git checkout in /opt for future `update`
 rm -rf /opt/lxc-updater
 mv "$TMP/src" /opt/lxc-updater
 chmod +x /opt/lxc-updater/install/in-container-setup.sh
-APP_PORT="${APP_PORT:-3847}" LXC_UPDATER_REPO="$LXC_UPDATER_REPO" \
+# Source already in APP_DIR — provisioner will detect package.json
+APP_PORT="${APP_PORT:-3847}" \
+ENABLE_SSH_SERVER="${ENABLE_SSH_SERVER:-0}" \
+TZ="${TZ:-UTC}" \
   /opt/lxc-updater/install/in-container-setup.sh
 BOOT
 fi
-msg_ok "Application installed"
+msg_ok "Debian environment provisioned and ${APP} installed"
 
 # --- SSH trust to Proxmox host ---------------------------------------------
 HOST_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"

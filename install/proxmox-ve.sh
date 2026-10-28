@@ -2,20 +2,19 @@
 # =============================================================================
 # LXC Updater — Proxmox VE installer (helper-script style)
 # =============================================================================
-# Run on the Proxmox host shell (node):
+# One-line install (preferred — use the self-contained root install.sh):
 #
-#   bash -c "$(curl -fsSL https://RAW_URL/install/proxmox-ve.sh)"
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh)"
 #
-# Or from a local checkout of this repo on the host:
+# From a local checkout on the host:
 #
 #   bash install/proxmox-ve.sh
+#   # or: bash install.sh
 #
 # Optional env:
-#   LXC_UPDATER_REPO     Git URL to clone into the CT (required for curl|bash
-#                        unless you run from a full checkout)
-#   LXC_UPDATER_BRANCH   Git branch (default: main)
-#   APP_PORT             Web UI port (default: 3847)
-#   CTID / HN / STORAGE / BRIDGE / CORE / RAM / DISK / NET / PASSWORD overrides
+#   LXC_UPDATER_REPO / LXC_UPDATER_BRANCH / APP_PORT
+#   CTID HN STORAGE BRIDGE CORE RAM DISK NET PASSWORD
+#   INSTALL_MODE=default|advanced  ENABLE_SSH_SERVER=0|1
 # =============================================================================
 set -euo pipefail
 
@@ -59,18 +58,32 @@ EOF
   echo
 }
 
-# --- resolve script / repo source -------------------------------------------
+# --- resolve application source ---------------------------------------------
+# Prefer: 1) embedded payload (root install.sh one-liner)
+#         2) local checkout next to this script
+#         3) LXC_UPDATER_REPO git clone
 SCRIPT_SOURCE="${BASH_SOURCE[0]:-$0}"
-if [[ "$SCRIPT_SOURCE" != /* ]]; then
-  SCRIPT_SOURCE="$(pwd)/$SCRIPT_SOURCE"
-fi
-# When piped from curl, BASH_SOURCE may be /dev/fd/...
-SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" 2>/dev/null && pwd || true)"
 REPO_ROOT=""
-if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/in-container-setup.sh" ]]; then
-  REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-elif [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/../package.json" ]]; then
-  REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PAYLOAD_ROOT=""
+
+if declare -F lxc_updater_has_payload >/dev/null 2>&1 && lxc_updater_has_payload; then
+  PAYLOAD_ROOT="$(mktemp -d /tmp/lxc-updater-src.XXXXXX)"
+  lxc_updater_extract_payload "$PAYLOAD_ROOT"
+  REPO_ROOT="$PAYLOAD_ROOT"
+  # shellcheck disable=SC2064
+  trap 'rm -rf "$PAYLOAD_ROOT"' EXIT
+elif [[ "$SCRIPT_SOURCE" != /dev/fd/* && "$SCRIPT_SOURCE" != - ]]; then
+  if [[ "$SCRIPT_SOURCE" != /* ]]; then
+    SCRIPT_SOURCE="$(pwd)/$SCRIPT_SOURCE"
+  fi
+  SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_SOURCE")" 2>/dev/null && pwd || true)"
+  if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/in-container-setup.sh" ]]; then
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+  elif [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/../package.json" ]]; then
+    REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+  elif [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/install/in-container-setup.sh" ]]; then
+    REPO_ROOT="$SCRIPT_DIR"
+  fi
 fi
 
 DEFAULT_REPO=""
@@ -85,6 +98,7 @@ APP="LXC Updater"
 OS_TYPE="debian"
 OS_VERSION="13"
 TEMPLATE_NAME=""
+SOURCE_LABEL="unknown"
 
 # --- defaults (overridable) -------------------------------------------------
 NEXTID=$(pvesh get /cluster/nextid 2>/dev/null || echo 200)
@@ -183,14 +197,22 @@ else
   fi
 fi
 
-if [[ -z "$REPO_URL" && -z "$REPO_ROOT" ]]; then
+if [[ -n "$PAYLOAD_ROOT" ]]; then
+  SOURCE_LABEL="embedded payload (one-line installer)"
+elif [[ -n "$REPO_ROOT" ]]; then
+  SOURCE_LABEL="local checkout ${REPO_ROOT}"
+elif [[ -n "$REPO_URL" ]]; then
+  SOURCE_LABEL="git ${REPO_URL} (${REPO_BRANCH})"
+else
   echo
-  msg_info "No local checkout detected and LXC_UPDATER_REPO is unset."
+  msg_info "No app source found (no embedded payload, checkout, or LXC_UPDATER_REPO)."
+  echo -e "${TAB}Use the root ${BL}install.sh${CL} one-liner, or set LXC_UPDATER_REPO, or run from a git clone."
   read -r -p "Git repository URL to install from: " REPO_URL
   if [[ -z "$REPO_URL" ]]; then
     msg_error "A repository URL is required"
     exit 1
   fi
+  SOURCE_LABEL="git ${REPO_URL} (${REPO_BRANCH})"
 fi
 
 echo
@@ -205,11 +227,7 @@ echo -e "${TAB}Guest OS  : ${BL}Debian ${OS_VERSION}${CL} (apt upgrade, locale, 
 SSH_SERVER_LABEL="no (client only)"
 [[ "$ENABLE_SSH_SERVER" == "1" ]] && SSH_SERVER_LABEL="yes"
 echo -e "${TAB}SSH server: ${BL}${SSH_SERVER_LABEL}${CL}"
-if [[ -n "$REPO_ROOT" && -z "${LXC_UPDATER_REPO:-}" ]]; then
-  echo -e "${TAB}Source    : ${BL}local checkout ${REPO_ROOT}${CL}"
-else
-  echo -e "${TAB}Source    : ${BL}${REPO_URL:-local} (${REPO_BRANCH})${CL}"
-fi
+echo -e "${TAB}Source    : ${BL}${SOURCE_LABEL}${CL}"
 echo
 read -r -p "Proceed? [Y/n]: " confirm
 case "${confirm:-Y}" in

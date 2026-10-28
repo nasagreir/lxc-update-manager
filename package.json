@@ -6,7 +6,8 @@
     "dev": "next dev --hostname 0.0.0.0 --port 3847",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3847",
-    "lint": "eslint"
+    "lint": "eslint",
+    "build:installer": "bash scripts/build-one-line-installer.sh"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",

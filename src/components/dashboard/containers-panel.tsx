@@ -282,8 +282,17 @@ export function ContainersPanel({
                       >
                         Update available
                       </Button>
+                    ) : c.updateAvailable === false ? (
+                      <span
+                        className="text-xs font-medium text-emerald-700"
+                        title={c.updateAvailableDetail ?? "Up to date"}
+                      >
+                        Up to date
+                      </span>
                     ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
+                      <span className="text-xs text-muted-foreground">
+                        Not checked
+                      </span>
                     )}
                   </td>
                 </tr>

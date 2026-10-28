@@ -201,8 +201,10 @@ echo -e "${TAB}Storage   : ${BL}${STORAGE}${CL}"
 echo -e "${TAB}Resources : ${BL}${CORE} CPU / ${RAM} MB / ${DISK} GB${CL}"
 echo -e "${TAB}Network   : ${BL}${BRIDGE} / ${NET}${CL}"
 echo -e "${TAB}Port      : ${BL}${APP_PORT}${CL}"
-echo -e "${TAB}Guest OS  : ${BL}Debian ${OS_VERSION} (full provision: apt, locale, chrony, Node ${BL}22${CL})"
-echo -e "${TAB}SSH server: ${BL}$([[ "$ENABLE_SSH_SERVER" == "1" ]] && echo yes || echo no — client only)${CL}"
+echo -e "${TAB}Guest OS  : ${BL}Debian ${OS_VERSION}${CL} (apt upgrade, locale, chrony, Node 22, systemd)"
+SSH_SERVER_LABEL="no (client only)"
+[[ "$ENABLE_SSH_SERVER" == "1" ]] && SSH_SERVER_LABEL="yes"
+echo -e "${TAB}SSH server: ${BL}${SSH_SERVER_LABEL}${CL}"
 if [[ -n "$REPO_ROOT" && -z "${LXC_UPDATER_REPO:-}" ]]; then
   echo -e "${TAB}Source    : ${BL}local checkout ${REPO_ROOT}${CL}"
 else
@@ -310,12 +312,6 @@ msg_info "Provisioning Debian environment and installing ${APP}"
 pct exec "$CTID" -- mkdir -p /opt/lxc-updater /opt/lxc-updater-data /root/.lxc-updater-install
 
 HOST_TZ="$(timedatectl show -p Timezone --value 2>/dev/null || cat /etc/timezone 2>/dev/null || echo UTC)"
-SETUP_ENV=(
-  "APP_PORT=${APP_PORT}"
-  "ENABLE_SSH_SERVER=${ENABLE_SSH_SERVER}"
-  "TZ=${HOST_TZ}"
-  "LXC_UPDATER_BRANCH=${REPO_BRANCH}"
-)
 
 if [[ -n "$REPO_ROOT" && -f "$REPO_ROOT/install/in-container-setup.sh" ]]; then
   pct push "$CTID" "$REPO_ROOT/install/in-container-setup.sh" \
@@ -327,8 +323,12 @@ if [[ -n "$REPO_ROOT" && -f "$REPO_ROOT/install/in-container-setup.sh" ]]; then
     --exclude='./data' \
     -czf - . \
     | pct exec "$CTID" -- tar -C /opt/lxc-updater -xzf -
-  pct exec "$CTID" -- bash -lc \
-    "chmod +x /root/.lxc-updater-install/in-container-setup.sh; ${SETUP_ENV[*]} /root/.lxc-updater-install/in-container-setup.sh"
+  pct exec "$CTID" -- env \
+    APP_PORT="$APP_PORT" \
+    ENABLE_SSH_SERVER="$ENABLE_SSH_SERVER" \
+    TZ="$HOST_TZ" \
+    LXC_UPDATER_BRANCH="$REPO_BRANCH" \
+    bash -lc 'chmod +x /root/.lxc-updater-install/in-container-setup.sh; /root/.lxc-updater-install/in-container-setup.sh'
 else
   # Clone into the CT, then run the same full guest provisioner
   pct exec "$CTID" -- env \

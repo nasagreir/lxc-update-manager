@@ -27,13 +27,18 @@ export LXC_UPDATER_REPO="https://github.com/YOU/proxmox-lxc-updater.git"
 bash -c "$(curl -fsSL https://RAW_URL_TO/install/proxmox-ve.sh)"
 ```
 
-The installer will:
+The installer fully provisions the guest, similar to community helper scripts:
 
 1. Prompt for **Default** or **Advanced** settings (CTID, storage, CPU/RAM/disk, bridge, IP)
-2. Create a Debian LXC and start it
-3. Install Node.js 22, build the app into `/opt/lxc-updater`, enable `lxc-updater.service`
-4. Install a console **`update`** command (same UX as community helper scripts)
-5. Generate an SSH key in the CT and optionally authorize it on the host for `pct exec`
+2. Create a **Debian** LXC from the official template and wait for network
+3. Inside the CT (`install/in-container-setup.sh`):
+   - `apt update` / `dist-upgrade`
+   - base packages (curl, git, build tools, chrony, locales, python3, …)
+   - locale `en_US.UTF-8`, timezone (from the host), MOTD
+   - **Node.js 22** via NodeSource
+   - build the app into `/opt/lxc-updater`, enable `lxc-updater.service`
+   - install console **`update`**, generate SSH client key for `pct exec`
+4. Optionally authorize that key on the Proxmox host
 
 Then open `http://<CT-IP>:3847`, turn off Mock mode, and add your Proxmox API token.
 

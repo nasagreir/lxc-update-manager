@@ -17,6 +17,7 @@ export function AppShell() {
   const [jobs, setJobs] = useState<UpdateJob[]>([]);
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checking, setChecking] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mockMode, setMockMode] = useState(true);
@@ -37,6 +38,21 @@ export function AppShell() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const checkUpdates = useCallback(async () => {
+    setChecking(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/containers?check=1");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Update check failed");
+      setContainers(data.containers);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setChecking(false);
     }
   }, []);
 
@@ -111,6 +127,7 @@ export function AppShell() {
   }
 
   const runningCount = containers.filter((c) => c.status === "running").length;
+  const availableCount = containers.filter((c) => c.updateAvailable).length;
   const activeJobs = jobs.filter(
     (j) => j.status === "queued" || j.status === "running",
   ).length;
@@ -144,6 +161,11 @@ export function AppShell() {
             <Badge variant="secondary">
               {runningCount}/{containers.length} running
             </Badge>
+            {availableCount > 0 && (
+              <Badge className="bg-red-600 text-white hover:bg-red-600">
+                {availableCount} update{availableCount === 1 ? "" : "s"} available
+              </Badge>
+            )}
             {activeJobs > 0 && (
               <Badge className="bg-teal-700 text-white hover:bg-teal-700">
                 {activeJobs} job{activeJobs === 1 ? "" : "s"} active
@@ -182,8 +204,10 @@ export function AppShell() {
           <ContainersPanel
             containers={containers}
             loading={loading}
+            checking={checking}
             error={error}
             onRefresh={(detect) => void loadContainers(detect)}
+            onCheckUpdates={() => void checkUpdates()}
             onUpdate={handleUpdate}
             updating={updating}
           />

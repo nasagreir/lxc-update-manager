@@ -23,6 +23,10 @@ export interface LxcContainer {
   lastCheckedAt: string | null;
   lastUpdatedAt: string | null;
   lastUpdateStatus: JobStatus | null;
+  /** null = not checked yet */
+  updateAvailable: boolean | null;
+  updateAvailableDetail: string | null;
+  pendingUpdateCount: number;
   notes?: string;
 }
 
@@ -102,7 +106,7 @@ export interface AppState {
   settings: AppSettings;
   automations: Automation[];
   jobs: UpdateJob[];
-  /** Cached container enrichments (update method, last update). */
+  /** Cached container enrichments (update method, last update, availability). */
   containerMeta: Record<
     string,
     {
@@ -110,6 +114,9 @@ export interface AppState {
       lastCheckedAt: string | null;
       lastUpdatedAt: string | null;
       lastUpdateStatus: JobStatus | null;
+      updateAvailable: boolean | null;
+      updateAvailableDetail: string | null;
+      pendingUpdateCount: number;
       notes?: string;
     }
   >;

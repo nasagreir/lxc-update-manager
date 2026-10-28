@@ -38,6 +38,9 @@ export const MOCK_CONTAINERS: LxcContainer[] = [
     lastCheckedAt: null,
     lastUpdatedAt: null,
     lastUpdateStatus: null,
+    updateAvailable: null,
+    updateAvailableDetail: null,
+    pendingUpdateCount: 0,
     notes: "Installed via Proxmox VE Helper-Scripts",
   },
   {
@@ -52,6 +55,9 @@ export const MOCK_CONTAINERS: LxcContainer[] = [
     lastCheckedAt: null,
     lastUpdatedAt: null,
     lastUpdateStatus: null,
+    updateAvailable: null,
+    updateAvailableDetail: null,
+    pendingUpdateCount: 0,
   },
   {
     vmid: 103,
@@ -65,6 +71,9 @@ export const MOCK_CONTAINERS: LxcContainer[] = [
     lastCheckedAt: null,
     lastUpdatedAt: null,
     lastUpdateStatus: null,
+    updateAvailable: null,
+    updateAvailableDetail: null,
+    pendingUpdateCount: 0,
   },
   {
     vmid: 104,
@@ -78,6 +87,9 @@ export const MOCK_CONTAINERS: LxcContainer[] = [
     lastCheckedAt: null,
     lastUpdatedAt: null,
     lastUpdateStatus: null,
+    updateAvailable: null,
+    updateAvailableDetail: null,
+    pendingUpdateCount: 0,
   },
   {
     vmid: 110,
@@ -91,6 +103,9 @@ export const MOCK_CONTAINERS: LxcContainer[] = [
     lastCheckedAt: null,
     lastUpdatedAt: null,
     lastUpdateStatus: null,
+    updateAvailable: null,
+    updateAvailableDetail: null,
+    pendingUpdateCount: 0,
     notes: "Plain Debian — apt upgrade",
   },
   {
@@ -105,6 +120,9 @@ export const MOCK_CONTAINERS: LxcContainer[] = [
     lastCheckedAt: null,
     lastUpdatedAt: null,
     lastUpdateStatus: null,
+    updateAvailable: null,
+    updateAvailableDetail: null,
+    pendingUpdateCount: 0,
   },
   {
     vmid: 120,
@@ -118,6 +136,9 @@ export const MOCK_CONTAINERS: LxcContainer[] = [
     lastCheckedAt: null,
     lastUpdatedAt: null,
     lastUpdateStatus: null,
+    updateAvailable: null,
+    updateAvailableDetail: null,
+    pendingUpdateCount: 0,
     notes: "No detected updater",
   },
 ];

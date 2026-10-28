@@ -68,6 +68,7 @@ This repo also ships the usual pair for upstream-style installs:
 
 - Lists all LXC containers via the Proxmox API
 - Detects how each CT updates: community `update` command, `apt`, or `apk`
+- **Check for updates** — pending apt/apk packages, plus git remotes behind upstream for helper-script CTs; rows needing work show a red **Update available** button
 - Runs updates from the browser (with live job logs)
 - Schedules automations (daily / weekly / monthly / cron) that drive the same path unattended
 

@@ -6,6 +6,7 @@ import {
   ArrowUpCircle,
   Search,
   Loader2,
+  Radar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,19 +14,24 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import type { LxcContainer } from "@/lib/types";
 import { formatRelative, methodLabel, statusTone } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 export function ContainersPanel({
   containers,
   loading,
+  checking,
   error,
   onRefresh,
+  onCheckUpdates,
   onUpdate,
   updating,
 }: {
   containers: LxcContainer[];
   loading: boolean;
+  checking: boolean;
   error: string | null;
   onRefresh: (detect: boolean) => void;
+  onCheckUpdates: () => void;
   onUpdate: (vmids: number[]) => Promise<void>;
   updating: boolean;
 }) {
@@ -43,6 +49,8 @@ export function ContainersPanel({
         c.updateMethod.includes(q),
     );
   }, [containers, query]);
+
+  const availableCount = containers.filter((c) => c.updateAvailable).length;
 
   const allFilteredSelected =
     filtered.length > 0 && filtered.every((c) => selected.has(c.vmid));
@@ -83,7 +91,7 @@ export function ContainersPanel({
             variant="outline"
             size="sm"
             onClick={() => onRefresh(false)}
-            disabled={loading}
+            disabled={loading || checking}
           >
             <RefreshCw className={loading ? "animate-spin" : ""} />
             Refresh
@@ -92,10 +100,25 @@ export function ContainersPanel({
             variant="outline"
             size="sm"
             onClick={() => onRefresh(true)}
-            disabled={loading}
+            disabled={loading || checking}
             title="Probe each running CT for update / apt / apk"
           >
             Detect methods
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCheckUpdates}
+            disabled={loading || checking}
+            title="Refresh package indexes and detect pending updates"
+          >
+            {checking ? <Loader2 className="animate-spin" /> : <Radar />}
+            Check for updates
+            {availableCount > 0 && !checking && (
+              <span className="ml-0.5 rounded-full bg-red-600 px-1.5 text-[10px] font-semibold text-white">
+                {availableCount}
+              </span>
+            )}
           </Button>
           <Button
             size="sm"
@@ -126,7 +149,7 @@ export function ContainersPanel({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border/80 bg-white/75 shadow-sm backdrop-blur-sm">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full min-w-[780px] text-sm">
             <thead>
               <tr className="border-b bg-slate-50/80 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="w-10 px-3 py-3">
@@ -139,8 +162,8 @@ export function ContainersPanel({
                 <th className="px-3 py-3 font-medium">CT</th>
                 <th className="px-3 py-3 font-medium">Name</th>
                 <th className="px-3 py-3 font-medium">Status</th>
-                <th className="px-3 py-3 font-medium">Update</th>
-                <th className="px-3 py-3 font-medium">Last update</th>
+                <th className="px-3 py-3 font-medium">Method</th>
+                <th className="px-3 py-3 font-medium">Last checked</th>
                 <th className="px-3 py-3 font-medium text-right">Action</th>
               </tr>
             </thead>
@@ -148,7 +171,10 @@ export function ContainersPanel({
               {filtered.map((c, i) => (
                 <tr
                   key={c.vmid}
-                  className="border-b border-border/60 transition-colors hover:bg-teal-50/40"
+                  className={cn(
+                    "border-b border-border/60 transition-colors hover:bg-teal-50/40",
+                    c.updateAvailable && "bg-red-50/40",
+                  )}
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
                   <td className="px-3 py-3">
@@ -174,6 +200,11 @@ export function ContainersPanel({
                         </Badge>
                       ))}
                     </div>
+                    {c.updateAvailableDetail && c.updateAvailable && (
+                      <p className="mt-1 text-xs text-red-700/90">
+                        {c.updateAvailableDetail}
+                      </p>
+                    )}
                   </td>
                   <td className="px-3 py-3">
                     <Badge
@@ -192,26 +223,19 @@ export function ContainersPanel({
                     </span>
                   </td>
                   <td className="px-3 py-3 text-muted-foreground">
-                    {formatRelative(c.lastUpdatedAt)}
-                    {c.lastUpdateStatus && (
-                      <span className="ml-1 text-xs">
-                        ({c.lastUpdateStatus})
-                      </span>
+                    {formatRelative(c.lastCheckedAt)}
+                    {c.lastUpdatedAt && (
+                      <div className="text-xs">
+                        updated {formatRelative(c.lastUpdatedAt)}
+                      </div>
                     )}
                   </td>
                   <td className="px-3 py-3 text-right">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={
-                        updating ||
-                        c.status !== "running" ||
-                        c.updateMethod === "unknown"
-                      }
-                      onClick={() => void onUpdate([c.vmid])}
-                    >
-                      Update
-                    </Button>
+                    <UpdateActionButton
+                      container={c}
+                      updating={updating}
+                      onUpdate={() => void onUpdate([c.vmid])}
+                    />
                   </td>
                 </tr>
               ))}
@@ -220,5 +244,59 @@ export function ContainersPanel({
         </div>
       )}
     </div>
+  );
+}
+
+function UpdateActionButton({
+  container: c,
+  updating,
+  onUpdate,
+}: {
+  container: LxcContainer;
+  updating: boolean;
+  onUpdate: () => void;
+}) {
+  const disabled =
+    updating || c.status !== "running" || c.updateMethod === "unknown";
+
+  if (c.updateAvailable) {
+    return (
+      <Button
+        size="sm"
+        disabled={disabled}
+        onClick={onUpdate}
+        title={c.updateAvailableDetail ?? "Updates available"}
+        className="bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600/40"
+      >
+        Update available
+      </Button>
+    );
+  }
+
+  if (c.updateAvailable === false) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={disabled}
+        onClick={onUpdate}
+        title="Force update anyway"
+        className="text-muted-foreground"
+      >
+        Up to date
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={disabled}
+      onClick={onUpdate}
+      title="Check for updates to see if this CT is outdated"
+    >
+      Update
+    </Button>
   );
 }

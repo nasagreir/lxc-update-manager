@@ -121,21 +121,26 @@ export async function listNodes(settings: AppSettings): Promise<string[]> {
   return nodes.map((n) => n.node);
 }
 
+type LxcInventory = Omit<
+  LxcContainer,
+  | "updateMethod"
+  | "lastCheckedAt"
+  | "lastUpdatedAt"
+  | "lastUpdateStatus"
+  | "updateAvailable"
+  | "updateAvailableDetail"
+  | "pendingUpdateCount"
+  | "notes"
+>;
+
 export async function listLxcFromProxmox(
   settings: AppSettings,
-): Promise<Omit<LxcContainer, "updateMethod" | "lastCheckedAt" | "lastUpdatedAt" | "lastUpdateStatus" | "notes">[]> {
+): Promise<LxcInventory[]> {
   const nodeNames = settings.defaultNode
     ? [settings.defaultNode]
     : await listNodes(settings);
 
-  const all: Omit<
-    LxcContainer,
-    | "updateMethod"
-    | "lastCheckedAt"
-    | "lastUpdatedAt"
-    | "lastUpdateStatus"
-    | "notes"
-  >[] = [];
+  const all: LxcInventory[] = [];
 
   for (const node of nodeNames) {
     const entries = await pveFetchSafe<PveLxcEntry[]>(
@@ -162,16 +167,7 @@ export async function listLxcFromProxmox(
 
 export async function listContainers(
   settings: AppSettings,
-): Promise<
-  Omit<
-    LxcContainer,
-    | "updateMethod"
-    | "lastCheckedAt"
-    | "lastUpdatedAt"
-    | "lastUpdateStatus"
-    | "notes"
-  >[]
-> {
+): Promise<LxcInventory[]> {
   if (settings.mockMode) {
     return MOCK_CONTAINERS.map(
       ({

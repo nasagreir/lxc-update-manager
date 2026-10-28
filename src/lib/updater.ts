@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { checkContainerUpdates } from "@/lib/proxmox/check-updates";
 import { listContainers } from "@/lib/proxmox/client";
 import {
   buildApkUpdateScript,
@@ -10,12 +11,28 @@ import {
 import { MOCK_CONTAINERS } from "@/lib/store/defaults";
 import { readState, updateState } from "@/lib/store/db";
 import type {
+  AppState,
   JobStatus,
   LxcContainer,
   TriggerSource,
   UpdateJob,
   UpdateMethod,
 } from "@/lib/types";
+
+type ContainerMeta = AppState["containerMeta"][string];
+
+function emptyMeta(partial?: Partial<ContainerMeta>): ContainerMeta {
+  return {
+    updateMethod: partial?.updateMethod ?? "unknown",
+    lastCheckedAt: partial?.lastCheckedAt ?? null,
+    lastUpdatedAt: partial?.lastUpdatedAt ?? null,
+    lastUpdateStatus: partial?.lastUpdateStatus ?? null,
+    updateAvailable: partial?.updateAvailable ?? null,
+    updateAvailableDetail: partial?.updateAvailableDetail ?? null,
+    pendingUpdateCount: partial?.pendingUpdateCount ?? 0,
+    notes: partial?.notes,
+  };
+}
 
 const runningVmids = new Set<number>();
 
@@ -65,6 +82,11 @@ function enrichContainers(
       lastCheckedAt: m?.lastCheckedAt ?? null,
       lastUpdatedAt: m?.lastUpdatedAt ?? null,
       lastUpdateStatus: m?.lastUpdateStatus ?? null,
+      updateAvailable: m?.updateAvailable ?? mockSeed?.updateAvailable ?? null,
+      updateAvailableDetail:
+        m?.updateAvailableDetail ?? mockSeed?.updateAvailableDetail ?? null,
+      pendingUpdateCount:
+        m?.pendingUpdateCount ?? mockSeed?.pendingUpdateCount ?? 0,
       notes: m?.notes ?? mockSeed?.notes,
     };
   });
@@ -72,6 +94,7 @@ function enrichContainers(
 
 export async function getContainers(opts?: {
   refreshMethods?: boolean;
+  checkUpdates?: boolean;
 }): Promise<LxcContainer[]> {
   const state = await readState();
   const raw = await listContainers(state.settings);
@@ -82,20 +105,20 @@ export async function getContainers(opts?: {
       try {
         const method = await detectUpdateMethod(state.settings, c.vmid);
         const checkedAt = new Date().toISOString();
-        await updateState((s) => ({
-          ...s,
-          containerMeta: {
-            ...s.containerMeta,
-            [String(c.vmid)]: {
-              updateMethod: method,
-              lastCheckedAt: checkedAt,
-              lastUpdatedAt: s.containerMeta[String(c.vmid)]?.lastUpdatedAt ?? null,
-              lastUpdateStatus:
-                s.containerMeta[String(c.vmid)]?.lastUpdateStatus ?? null,
-              notes: s.containerMeta[String(c.vmid)]?.notes,
+        await updateState((s) => {
+          const prev = s.containerMeta[String(c.vmid)];
+          return {
+            ...s,
+            containerMeta: {
+              ...s.containerMeta,
+              [String(c.vmid)]: emptyMeta({
+                ...prev,
+                updateMethod: method,
+                lastCheckedAt: checkedAt,
+              }),
             },
-          },
-        }));
+          };
+        });
       } catch {
         // keep previous meta on detection failure
       }
@@ -108,7 +131,80 @@ export async function getContainers(opts?: {
     );
   }
 
+  if (opts?.checkUpdates) {
+    containers = await checkUpdatesForContainers(containers);
+  }
+
   return containers;
+}
+
+/** Probe each running CT for pending updates and persist results. */
+export async function checkUpdatesForContainers(
+  existing?: LxcContainer[],
+): Promise<LxcContainer[]> {
+  const state = await readState();
+  const containers = existing ?? (await getContainers());
+  const targets = containers.filter(
+    (c) => c.status === "running" && c.updateMethod !== "unknown",
+  );
+
+  for (const c of targets) {
+    try {
+      let method = c.updateMethod;
+      if (method === "unknown" && !state.settings.mockMode) {
+        method = await detectUpdateMethod(state.settings, c.vmid);
+      }
+      const result = await checkContainerUpdates(
+        state.settings,
+        c.vmid,
+        method,
+      );
+      await updateState((s) => {
+        const prev = s.containerMeta[String(c.vmid)];
+        return {
+          ...s,
+          containerMeta: {
+            ...s.containerMeta,
+            [String(c.vmid)]: emptyMeta({
+              ...prev,
+              updateMethod: result.method,
+              lastCheckedAt: result.checkedAt,
+              updateAvailable: result.available,
+              updateAvailableDetail: result.detail,
+              pendingUpdateCount: result.pendingCount,
+              notes: prev?.notes ?? c.notes,
+            }),
+          },
+        };
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await updateState((s) => {
+        const prev = s.containerMeta[String(c.vmid)];
+        return {
+          ...s,
+          containerMeta: {
+            ...s.containerMeta,
+            [String(c.vmid)]: emptyMeta({
+              ...prev,
+              lastCheckedAt: new Date().toISOString(),
+              updateAvailable: prev?.updateAvailable ?? null,
+              updateAvailableDetail: `Check failed: ${message}`,
+              notes: prev?.notes ?? c.notes,
+            }),
+          },
+        };
+      });
+    }
+  }
+
+  const refreshed = await readState();
+  const raw = await listContainers(refreshed.settings);
+  return enrichContainers(
+    raw,
+    refreshed.containerMeta,
+    refreshed.settings.mockMode,
+  );
 }
 
 async function simulateMockUpdate(
@@ -311,21 +407,31 @@ async function runJob(jobId: string) {
       error: result.ok ? undefined : "Update failed — see log",
     });
 
-    await updateState((s) => ({
-      ...s,
-      containerMeta: {
-        ...s.containerMeta,
-        [String(job.vmid)]: {
-          updateMethod: result.method,
-          lastCheckedAt: finishedAt,
-          lastUpdatedAt: result.ok
-            ? finishedAt
-            : s.containerMeta[String(job.vmid)]?.lastUpdatedAt ?? null,
-          lastUpdateStatus: status,
-          notes: s.containerMeta[String(job.vmid)]?.notes ?? container.notes,
+    await updateState((s) => {
+      const prev = s.containerMeta[String(job.vmid)];
+      return {
+        ...s,
+        containerMeta: {
+          ...s.containerMeta,
+          [String(job.vmid)]: emptyMeta({
+            ...prev,
+            updateMethod: result.method,
+            lastCheckedAt: finishedAt,
+            lastUpdatedAt: result.ok
+              ? finishedAt
+              : prev?.lastUpdatedAt ?? null,
+            lastUpdateStatus: status,
+            // After a successful update, clear the badge until the next check.
+            updateAvailable: result.ok ? false : prev?.updateAvailable ?? null,
+            updateAvailableDetail: result.ok
+              ? "Up to date"
+              : prev?.updateAvailableDetail ?? null,
+            pendingUpdateCount: result.ok ? 0 : prev?.pendingUpdateCount ?? 0,
+            notes: prev?.notes ?? container.notes,
+          }),
         },
-      },
-    }));
+      };
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     await appendJobLog(jobId, `✗ ${message}\n`);

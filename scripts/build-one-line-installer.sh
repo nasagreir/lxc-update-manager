@@ -32,21 +32,15 @@ HOST_LOGIC="$ROOT/install/proxmox-ve.sh"
 # =============================================================================
 # LXC Updater — one-line Proxmox host installer (self-contained)
 # =============================================================================
-# Repo: https://cursor.com/codebase/greir-hull/lxc-update-manager
-# Clone: origin repo clone greir-hull/lxc-update-manager
+# Paste on the Proxmox VE host shell (Datacenter → node → Shell):
 #
-# Origin repos are private/internal (no anonymous raw URL), so install by
-# cloning with the Origin CLI, then running this script on the Proxmox host:
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/greir-hull/lxc-update-manager/main/install.sh)"
 #
-#   curl -fsSL https://downloads.cursor.com/origin/install.sh | sh
-#   export PATH="$HOME/.local/bin:$PATH"
-#   origin auth login
-#   origin repo clone greir-hull/lxc-update-manager
-#   cd lxc-update-manager && bash install.sh
-#
-# Or copy this file to the Proxmox host and run:  bash install.sh
+# Repo: https://github.com/greir-hull/lxc-update-manager
+# Or copy this file to the host and run:  bash install.sh
 #
 # Optional: CTID=210 HN=lxc-updater INSTALL_MODE=default bash install.sh
+# Later updates inside the CT:  pct enter <CTID>  then type  update
 # =============================================================================
 
 lxc_updater_has_payload() { return 0; }
@@ -82,15 +76,6 @@ BYTES=$(wc -c <"$OUT" | tr -d ' ')
 echo "Wrote $OUT (${BYTES} bytes), syntax OK"
 
 # Smoke-test payload extraction
-TEST_DIR="$(mktemp -d)"
-# shellcheck disable=SC1090
-bash -c "source <(sed -n '1,/^# --- host installer/p' '$OUT' | head -n -1); lxc_updater_extract_payload '$TEST_DIR'" 2>/dev/null \
-  || bash -c '
-    set -e
-    source '"$OUT"' 
-  ' 2>/dev/null || true
-
-# More reliable extract test: run only the payload functions
 bash <<TEST
 set -euo pipefail
 $(sed -n '/^lxc_updater_has_payload/,/^# --- host installer/p' "$OUT" | sed '$d')

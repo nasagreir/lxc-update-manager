@@ -2,15 +2,9 @@
 # =============================================================================
 # LXC Updater — Proxmox VE installer (helper-script style)
 # =============================================================================
-# Repo: https://cursor.com/codebase/greir-hull/lxc-update-manager
+# Public install (Proxmox host shell — Datacenter → node → Shell):
 #
-# Preferred — clone with Origin, then run the self-contained root install.sh:
-#
-#   curl -fsSL https://downloads.cursor.com/origin/install.sh | sh
-#   export PATH="$HOME/.local/bin:$PATH"
-#   origin auth login
-#   origin repo clone greir-hull/lxc-update-manager
-#   cd lxc-update-manager && bash install.sh
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/greir-hull/lxc-update-manager/main/install.sh)"
 #
 # From a local checkout on the host:
 #
@@ -18,7 +12,7 @@
 #   # or: bash install.sh
 #
 # Optional env:
-#   LXC_UPDATER_REPO / LXC_UPDATER_BRANCH / APP_PORT
+#   LXC_UPDATER_REPO / LXC_UPDATER_BRANCH / LXC_UPDATER_GH_REPO / APP_PORT
 #   CTID HN STORAGE BRIDGE CORE RAM DISK NET PASSWORD
 #   INSTALL_MODE=default|advanced  ENABLE_SSH_SERVER=0|1
 # =============================================================================
@@ -92,16 +86,22 @@ elif [[ "$SCRIPT_SOURCE" != /dev/fd/* && "$SCRIPT_SOURCE" != - ]]; then
   fi
 fi
 
-DEFAULT_REPO="https://origin.cursor.com/greir-hull/lxc-update-manager.git"
+DEFAULT_REPO="https://github.com/greir-hull/lxc-update-manager.git"
+DEFAULT_GH_REPO="greir-hull/lxc-update-manager"
 if [[ -n "$REPO_ROOT" ]] && git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   FROM_REMOTE="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null | sed -E 's#https://[^@]+@#https://#' || true)"
-  if [[ -n "$FROM_REMOTE" ]]; then
+  # Prefer a public GitHub remote when present so CT updates can git pull.
+  FROM_GITHUB="$(git -C "$REPO_ROOT" remote get-url github 2>/dev/null | sed -E 's#https://[^@]+@#https://#' || true)"
+  if [[ -n "$FROM_GITHUB" ]]; then
+    DEFAULT_REPO="$FROM_GITHUB"
+  elif [[ "$FROM_REMOTE" == *"github.com"* ]]; then
     DEFAULT_REPO="$FROM_REMOTE"
   fi
 fi
 
 REPO_URL="${LXC_UPDATER_REPO:-$DEFAULT_REPO}"
 REPO_BRANCH="${LXC_UPDATER_BRANCH:-main}"
+GH_REPO="${LXC_UPDATER_GH_REPO:-$DEFAULT_GH_REPO}"
 APP_PORT="${APP_PORT:-3847}"
 APP="LXC Updater"
 OS_TYPE="debian"
@@ -355,12 +355,15 @@ if [[ -n "$REPO_ROOT" && -f "$REPO_ROOT/install/in-container-setup.sh" ]]; then
     ENABLE_SSH_SERVER="$ENABLE_SSH_SERVER" \
     TZ="$HOST_TZ" \
     LXC_UPDATER_BRANCH="$REPO_BRANCH" \
+    LXC_UPDATER_REPO="$REPO_URL" \
+    LXC_UPDATER_GH_REPO="$GH_REPO" \
     bash -lc 'chmod +x /root/.lxc-updater-install/in-container-setup.sh; /root/.lxc-updater-install/in-container-setup.sh'
 else
   # Clone into the CT, then run the same full guest provisioner
   pct exec "$CTID" -- env \
     LXC_UPDATER_REPO="$REPO_URL" \
     LXC_UPDATER_BRANCH="$REPO_BRANCH" \
+    LXC_UPDATER_GH_REPO="$GH_REPO" \
     APP_PORT="$APP_PORT" \
     ENABLE_SSH_SERVER="$ENABLE_SSH_SERVER" \
     TZ="$HOST_TZ" \
@@ -378,6 +381,9 @@ chmod +x /opt/lxc-updater/install/in-container-setup.sh
 APP_PORT="${APP_PORT:-3847}" \
 ENABLE_SSH_SERVER="${ENABLE_SSH_SERVER:-0}" \
 TZ="${TZ:-UTC}" \
+LXC_UPDATER_REPO="${LXC_UPDATER_REPO:-}" \
+LXC_UPDATER_GH_REPO="${LXC_UPDATER_GH_REPO:-greir-hull/lxc-update-manager}" \
+LXC_UPDATER_BRANCH="${LXC_UPDATER_BRANCH:-main}" \
   /opt/lxc-updater/install/in-container-setup.sh
 BOOT
 fi

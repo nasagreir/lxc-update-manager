@@ -11,8 +11,9 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-/opt/lxc-updater}"
 DATA_DIR="${DATA_DIR:-/opt/lxc-updater-data}"
 APP_PORT="${APP_PORT:-3847}"
-REPO_URL="${LXC_UPDATER_REPO:-}"
+REPO_URL="${LXC_UPDATER_REPO:-https://github.com/greir-hull/lxc-update-manager.git}"
 REPO_BRANCH="${LXC_UPDATER_BRANCH:-main}"
+GH_REPO="${LXC_UPDATER_GH_REPO:-greir-hull/lxc-update-manager}"
 NODE_MAJOR="${NODE_MAJOR:-22}"
 ENABLE_SSH_SERVER="${ENABLE_SSH_SERVER:-0}"
 TZ_NAME="${TZ:-}"
@@ -203,6 +204,15 @@ else
   err "No application source found. Set LXC_UPDATER_REPO or copy the project into ${APP_DIR} first."
 fi
 
+# Record public source so /usr/bin/update can refresh without a full reinstall
+# even when the tree was copied from the embedded installer (no .git).
+mkdir -p "$APP_DIR"
+cat >"$APP_DIR/.lxc-updater-source" <<EOF
+LXC_UPDATER_GH_REPO=${GH_REPO}
+LXC_UPDATER_REPO=${REPO_URL}
+LXC_UPDATER_BRANCH=${REPO_BRANCH}
+EOF
+
 # ---------------------------------------------------------------------------
 # 5. Build & persist data outside the app tree
 # ---------------------------------------------------------------------------
@@ -271,19 +281,31 @@ fi
 # 7. Helper-script style /usr/bin/update
 # ---------------------------------------------------------------------------
 msg "Installing /usr/bin/update"
-cat >/usr/bin/update <<'UPDATE'
+# Expand GH defaults at install time; keep the rest of the script static.
+cat >/usr/bin/update <<UPDATE
 #!/usr/bin/env bash
 set -euo pipefail
 APP_DIR="/opt/lxc-updater"
 DATA_DIR="/opt/lxc-updater-data"
-BRANCH="${LXC_UPDATER_BRANCH:-main}"
+# Defaults baked at install; overridable via env or .lxc-updater-source
+DEFAULT_GH_REPO="${GH_REPO}"
+DEFAULT_REPO_URL="${REPO_URL}"
+DEFAULT_BRANCH="${REPO_BRANCH}"
+
+if [[ -f "\$APP_DIR/.lxc-updater-source" ]]; then
+  # shellcheck disable=SC1091
+  source "\$APP_DIR/.lxc-updater-source"
+fi
+GH_REPO="\${LXC_UPDATER_GH_REPO:-\${DEFAULT_GH_REPO}}"
+REPO_URL="\${LXC_UPDATER_REPO:-\${DEFAULT_REPO_URL}}"
+BRANCH="\${LXC_UPDATER_BRANCH:-\${DEFAULT_BRANCH}}"
 
 header() {
   clear
   cat <<'EOF'
     __   _  __ ______   __  __          __      __
    / /  | |/ // ____/  / / / /___  ____/ /___ _/ /____  _____
-  / /   |   // /      / / / / __ \/ __  / __ `/ __/ _ \/ ___/
+  / /   |   // /      / / / / __ \/ __  / __ \`/ __/ _ \/ ___/
  / /___/   |/ /___   / /_/ / /_/ / /_/ / /_/ / /_/  __/ /
 /_____/_/|_|\____/   \____/ .___/\__,_/\__,_/\__/\___/_/
                          /_/
@@ -293,22 +315,50 @@ EOF
 }
 
 ask_yes() {
-  local prompt="${1:-Continue?}"
-  read -r -p "$prompt [y/N] " ans
-  [[ "${ans,,}" == "y" || "${ans,,}" == "yes" ]]
+  local prompt="\${1:-Continue?}"
+  read -r -p "\$prompt [y/N] " ans
+  [[ "\${ans,,}" == "y" || "\${ans,,}" == "yes" ]]
+}
+
+refresh_from_github_tarball() {
+  local tmp
+  tmp="\$(mktemp -d)"
+  echo "Downloading https://github.com/\${GH_REPO}/archive/refs/heads/\${BRANCH}.tar.gz …"
+  curl -fsSL "https://github.com/\${GH_REPO}/archive/refs/heads/\${BRANCH}.tar.gz" \
+    | tar -xz -C "\$tmp"
+  local extracted
+  extracted="\$(find "\$tmp" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
+  if [[ -z "\$extracted" || ! -f "\$extracted/package.json" ]]; then
+    echo "Failed to extract GitHub sources for \${GH_REPO}@\${BRANCH}" >&2
+    rm -rf "\$tmp"
+    return 1
+  fi
+  # Preserve data symlink / local env; replace the app tree.
+  rsync -a --delete \
+    --exclude 'data' \
+    --exclude 'node_modules' \
+    --exclude '.next' \
+    --exclude '.lxc-updater-source' \
+    "\$extracted"/ "\$APP_DIR"/
+  cat >"\$APP_DIR/.lxc-updater-source" <<SRCEOF
+LXC_UPDATER_GH_REPO=\${GH_REPO}
+LXC_UPDATER_REPO=\${REPO_URL}
+LXC_UPDATER_BRANCH=\${BRANCH}
+SRCEOF
+  rm -rf "\$tmp"
 }
 
 header
-if [[ ! -d "$APP_DIR/.git" && ! -f "$APP_DIR/package.json" ]]; then
-  echo "No LXC Updater installation found in $APP_DIR"
+if [[ ! -d "\$APP_DIR/.git" && ! -f "\$APP_DIR/package.json" ]]; then
+  echo "No LXC Updater installation found in \$APP_DIR"
   exit 1
 fi
 
 echo "This will:"
 echo "  • refresh Debian packages (optional)"
-echo "  • pull the latest app code"
+echo "  • pull the latest app code from GitHub (\${GH_REPO}@\${BRANCH})"
 echo "  • rebuild and restart lxc-updater"
-echo "App data in $DATA_DIR is preserved."
+echo "App data in \$DATA_DIR is preserved (settings, jobs, API keys)."
 echo
 if ! ask_yes "Proceed with update?"; then
   echo "Aborted."
@@ -324,21 +374,24 @@ fi
 
 systemctl stop lxc-updater.service || true
 
-if [[ -d "$APP_DIR/.git" ]]; then
-  cd "$APP_DIR"
-  git fetch --depth 1 origin "$BRANCH" || git fetch --depth 1 origin
-  git reset --hard "origin/${BRANCH}" 2>/dev/null || git pull --ff-only || true
+if [[ -d "\$APP_DIR/.git" ]]; then
+  cd "\$APP_DIR"
+  git remote set-url origin "\$REPO_URL" 2>/dev/null || \
+    git remote add origin "\$REPO_URL" 2>/dev/null || true
+  git fetch --depth 1 origin "\$BRANCH" || git fetch --depth 1 origin
+  git reset --hard "origin/\${BRANCH}" 2>/dev/null || git pull --ff-only || true
 else
-  echo "Not a git checkout — skipping git pull. Replace $APP_DIR manually if needed."
+  apt-get install -y --no-install-recommends curl ca-certificates rsync >/dev/null
+  refresh_from_github_tarball
 fi
 
-cd "$APP_DIR"
+cd "\$APP_DIR"
 npm install
 npm run build
 
-mkdir -p "$DATA_DIR"
-rm -rf "$APP_DIR/data"
-ln -sfn "$DATA_DIR" "$APP_DIR/data"
+mkdir -p "\$DATA_DIR"
+rm -rf "\$APP_DIR/data"
+ln -sfn "\$DATA_DIR" "\$APP_DIR/data"
 
 systemctl start lxc-updater.service
 echo

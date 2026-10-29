@@ -2,9 +2,15 @@
 # =============================================================================
 # LXC Updater — Proxmox VE installer (helper-script style)
 # =============================================================================
-# One-line install (preferred — use the self-contained root install.sh):
+# Repo: https://cursor.com/codebase/greir-hull/lxc-update-manager
 #
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh)"
+# Preferred — clone with Origin, then run the self-contained root install.sh:
+#
+#   curl -fsSL https://downloads.cursor.com/origin/install.sh | sh
+#   export PATH="$HOME/.local/bin:$PATH"
+#   origin auth login
+#   origin repo clone greir-hull/lxc-update-manager
+#   cd lxc-update-manager && bash install.sh
 #
 # From a local checkout on the host:
 #
@@ -86,9 +92,12 @@ elif [[ "$SCRIPT_SOURCE" != /dev/fd/* && "$SCRIPT_SOURCE" != - ]]; then
   fi
 fi
 
-DEFAULT_REPO=""
+DEFAULT_REPO="https://origin.cursor.com/greir-hull/lxc-update-manager.git"
 if [[ -n "$REPO_ROOT" ]] && git -C "$REPO_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  DEFAULT_REPO="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null | sed -E 's#https://[^@]+@#https://#' || true)"
+  FROM_REMOTE="$(git -C "$REPO_ROOT" remote get-url origin 2>/dev/null | sed -E 's#https://[^@]+@#https://#' || true)"
+  if [[ -n "$FROM_REMOTE" ]]; then
+    DEFAULT_REPO="$FROM_REMOTE"
+  fi
 fi
 
 REPO_URL="${LXC_UPDATER_REPO:-$DEFAULT_REPO}"

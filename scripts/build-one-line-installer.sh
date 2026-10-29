@@ -32,13 +32,19 @@ HOST_LOGIC="$ROOT/install/proxmox-ve.sh"
 # =============================================================================
 # LXC Updater — one-line Proxmox host installer (self-contained)
 # =============================================================================
+# Repo: https://cursor.com/codebase/greir-hull/lxc-update-manager
+# Clone: origin repo clone greir-hull/lxc-update-manager
 #
-# Paste this on the Proxmox VE node shell (Datacenter → node → Shell):
+# Origin repos are private/internal (no anonymous raw URL), so install by
+# cloning with the Origin CLI, then running this script on the Proxmox host:
 #
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/OWNER/REPO/main/install.sh)"
+#   curl -fsSL https://downloads.cursor.com/origin/install.sh | sh
+#   export PATH="$HOME/.local/bin:$PATH"
+#   origin auth login
+#   origin repo clone greir-hull/lxc-update-manager
+#   cd lxc-update-manager && bash install.sh
 #
-# Replace OWNER/REPO with your published copy of this project.
-# Or copy this file to the host and run:  bash install.sh
+# Or copy this file to the Proxmox host and run:  bash install.sh
 #
 # Optional: CTID=210 HN=lxc-updater INSTALL_MODE=default bash install.sh
 # =============================================================================

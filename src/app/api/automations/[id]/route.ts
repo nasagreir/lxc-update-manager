@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireSession } from "@/lib/auth/require-session";
 import { readState, updateState } from "@/lib/store/db";
 import {
   presetToCron,
@@ -24,6 +25,8 @@ export async function PATCH(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   try {
     const { id } = await context.params;
     const body = patchSchema.parse(await request.json());
@@ -76,9 +79,11 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   const { id } = await context.params;
   const state = await updateState((s) => ({
     ...s,

@@ -147,13 +147,14 @@ systemd-tmpfiles --create >/dev/null 2>&1 || true
 
 # Soften motd noise; add a clear app banner
 msg "Writing MOTD"
-cat >/etc/motd <<'EOF'
+cat >/etc/motd <<EOF
 
   LXC Updater
   -----------
-  Web UI  : http://<this-ct-ip>:3847
+  Web UI  : http://<this-ct-ip>:${APP_PORT}
   Service : systemctl status lxc-updater
   Update  : type  update  in this console
+  Password: lxc-updater-passwd   (or: lxc-updater-passwd --reset)
   App     : /opt/lxc-updater
   Data    : /opt/lxc-updater-data
 
@@ -402,6 +403,25 @@ chmod +x /usr/bin/update
 ok "Installed update command"
 
 # ---------------------------------------------------------------------------
+# 7b. Web UI password CLI (set / recover without the browser)
+# ---------------------------------------------------------------------------
+msg "Installing /usr/bin/lxc-updater-passwd"
+PASSWD_SRC="${APP_DIR}/scripts/lxc-updater-passwd.mjs"
+if [[ -f "$PASSWD_SRC" ]]; then
+  cat >/usr/bin/lxc-updater-passwd <<EOF
+#!/usr/bin/env bash
+set -euo pipefail
+export LXC_UPDATER_DATA_DIR="\${LXC_UPDATER_DATA_DIR:-/opt/lxc-updater-data}"
+exec node "${APP_DIR}/scripts/lxc-updater-passwd.mjs" "\$@"
+EOF
+  chmod +x /usr/bin/lxc-updater-passwd
+  chmod +x "$PASSWD_SRC" || true
+  ok "Installed lxc-updater-passwd"
+else
+  warn "scripts/lxc-updater-passwd.mjs missing — skip password CLI"
+fi
+
+# ---------------------------------------------------------------------------
 # 8. SSH client key for pct exec back to the Proxmox host
 # ---------------------------------------------------------------------------
 if [[ ! -f /root/.ssh/id_ed25519 ]]; then
@@ -438,9 +458,17 @@ state = {
     "updateTimeoutSeconds": 1800,
     "communityScriptAnswers": "y\ny\ny\ny\ny\ny\ny\ny\n",
   },
+  "auth": {
+    "passwordHash": None,
+    "passwordSalt": None,
+    "sessionSecret": None,
+    "passwordSetAt": None,
+  },
   "automations": [],
   "jobs": [],
+  "apiKeys": [],
   "containerMeta": {},
+  "nodeMeta": {},
 }
 path.write_text(json.dumps(state, indent=2))
 PY
@@ -462,4 +490,6 @@ echo "  App dir : ${APP_DIR}"
 echo "  Data    : ${DATA_DIR}"
 echo "  Port    : ${APP_PORT}"
 echo "  Update  : type 'update' in this CT console"
+echo "  Password: open the UI to set one, or run: lxc-updater-passwd"
 echo
+

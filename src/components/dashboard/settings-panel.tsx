@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Save } from "lucide-react";
+import { KeyRound, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { MIN_PASSWORD_LENGTH } from "@/lib/auth/constants";
 import type { AppSettings } from "@/lib/types";
 
 type SettingsForm = AppSettings & { hasApiTokenSecret?: boolean };
@@ -43,6 +44,12 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordSaving, setPasswordSaving] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -84,6 +91,33 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
     }
   }
 
+  async function savePassword() {
+    setPasswordSaving(true);
+    setPasswordMessage(null);
+    setPasswordError(null);
+    try {
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not change password");
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordMessage("Password updated.");
+    } catch (err) {
+      setPasswordError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPasswordSaving(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 py-16 justify-center text-muted-foreground">
@@ -95,6 +129,81 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
 
   return (
     <div className="animate-fade-up mx-auto max-w-2xl space-y-8">
+      <section className="space-y-4 rounded-lg border border-border/80 bg-card/80 p-5 shadow-sm">
+        <div>
+          <h3 className="flex items-center gap-2 font-semibold">
+            <KeyRound className="size-4 text-primary" />
+            Web UI password
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Change the login password. If you forget it, run{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">
+              lxc-updater-passwd --reset
+            </code>{" "}
+            inside this LXC.
+          </p>
+        </div>
+        <div className="grid gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="current-password">Current password</Label>
+            <Input
+              id="current-password"
+              type="password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="new-password">New password</Label>
+            <Input
+              id="new-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={MIN_PASSWORD_LENGTH}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password">Confirm new password</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              minLength={MIN_PASSWORD_LENGTH}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+        </div>
+        {passwordError && (
+          <p className="text-sm text-destructive">{passwordError}</p>
+        )}
+        {passwordMessage && (
+          <p className="text-sm text-teal-700 dark:text-teal-400">
+            {passwordMessage}
+          </p>
+        )}
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => void savePassword()}
+          disabled={
+            passwordSaving ||
+            !currentPassword ||
+            newPassword.length < MIN_PASSWORD_LENGTH
+          }
+        >
+          {passwordSaving ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <KeyRound className="size-4" />
+          )}
+          Update password
+        </Button>
+      </section>
+
       <section className="space-y-4 rounded-lg border border-border/80 bg-card/80 p-5 shadow-sm">
         <div>
           <h3 className="font-semibold">Mode</h3>

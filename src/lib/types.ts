@@ -162,8 +162,20 @@ export interface AppSettings {
   communityScriptAnswers: string;
 }
 
+/** UI login password — raw secret is never persisted. */
+export interface AuthState {
+  /** scrypt hex digest of the password. */
+  passwordHash: string | null;
+  /** Hex salt used with scrypt. */
+  passwordSalt: string | null;
+  /** HMAC key for session cookies; rotated on password change/reset. */
+  sessionSecret: string | null;
+  passwordSetAt: string | null;
+}
+
 export interface AppState {
   settings: AppSettings;
+  auth: AuthState;
   automations: Automation[];
   jobs: UpdateJob[];
   apiKeys: ApiKeyRecord[];

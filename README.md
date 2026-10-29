@@ -42,10 +42,10 @@ The installer fully provisions the guest, similar to community helper scripts:
    - locale `en_US.UTF-8`, timezone (from the host), MOTD
    - **Node.js 22** via NodeSource
    - build the app into `/opt/lxc-updater`, enable `lxc-updater.service`
-   - install console **`update`**, generate SSH client key for `pct exec`
+   - install console **`update`** and **`lxc-updater-passwd`**, generate SSH client key for `pct exec`
 4. Optionally authorize that key on the Proxmox host
 
-Then open `http://<CT-IP>:3847`, turn off Mock mode, and add your Proxmox API token.
+Then open `http://<CT-IP>:3847`, create a login password on first visit, turn off Mock mode, and add your Proxmox API token.
 
 | Env var | Purpose |
 | --- | --- |
@@ -77,6 +77,22 @@ This repo also ships the usual pair for upstream-style installs:
 - Runs updates from the browser (with live job logs)
 - **Automations** — cron schedules that can re-check first and only update outdated CTs
 - **API keys** — Bearer auth for Grok / other bots via `/api/v1/*`
+- **Login** — password-protected web UI; recover or change the password from the CT console
+
+## Login & password recovery
+
+The first browser visit asks you to create an admin password. Later visits require sign-in. Dashboard APIs use an HTTP-only session cookie; `/api/v1/*` API keys are unchanged.
+
+| Action | How |
+| --- | --- |
+| First-time setup | Open the UI and create a password |
+| Change password | Settings → Web UI password, or `lxc-updater-passwd` in the CT |
+| Forgot password | `pct enter <CTID>` then `lxc-updater-passwd --reset` |
+
+```bash
+pct enter <CTID>
+lxc-updater-passwd --reset
+```
 
 ## Automations
 
@@ -180,9 +196,11 @@ Answers are editable in Settings. Plain Debian/Alpine CTs without `update` fall 
 
 ## Security notes
 
+- Protect the web UI with the login password (or reset it from the CT console if forgotten).
 - Treat the API token and SSH key as root-equivalent for container management.
 - Bind the UI to a trusted network or put it behind SSO / reverse proxy.
 - Automations can upgrade many CTs — start with a small selected set.
+- Anyone with root on the updater CT can reset the UI password via `lxc-updater-passwd --reset`.
 
 ## Stack
 

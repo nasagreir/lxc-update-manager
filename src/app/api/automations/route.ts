@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireSession } from "@/lib/auth/require-session";
 import { readState, updateState } from "@/lib/store/db";
 import { presetToCron, refreshSchedules } from "@/lib/scheduler";
 import type { Automation } from "@/lib/types";
@@ -17,12 +18,16 @@ const createSchema = z.object({
   staggerSeconds: z.number().int().min(0).max(3600).default(30),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   const state = await readState();
   return NextResponse.json({ automations: state.automations });
 }
 
 export async function POST(request: Request) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   try {
     const body = createSchema.parse(await request.json());
     const cron =

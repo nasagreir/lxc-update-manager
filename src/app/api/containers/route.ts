@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/auth/require-session";
 import { getContainers } from "@/lib/updater";
 
 export async function GET(request: Request) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   try {
     const { searchParams } = new URL(request.url);
     const refresh = searchParams.get("refresh") === "1";

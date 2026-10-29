@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/auth/require-session";
 import { getNodes } from "@/lib/node-updater";
 
 export async function GET(request: Request) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   try {
     const url = new URL(request.url);
     const check = url.searchParams.get("check") === "1";

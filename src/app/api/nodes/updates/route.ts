@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireSession } from "@/lib/auth/require-session";
 import { enqueueNodeUpdates, getNodes } from "@/lib/node-updater";
 
 const bodySchema = z.object({
@@ -9,6 +10,8 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   try {
     const body = bodySchema.parse(await request.json().catch(() => ({})));
     let names = body.nodes ?? [];

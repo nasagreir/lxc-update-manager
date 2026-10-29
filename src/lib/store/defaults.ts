@@ -1,4 +1,4 @@
-import type { AppSettings, AppState, LxcContainer } from "@/lib/types";
+import type { AppSettings, AppState, AuthState, LxcContainer } from "@/lib/types";
 
 export const DEFAULT_SETTINGS: AppSettings = {
   mockMode: true,
@@ -19,8 +19,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
   communityScriptAnswers: "y\ny\ny\ny\ny\ny\ny\ny\n",
 };
 
+export const DEFAULT_AUTH: AuthState = {
+  passwordHash: null,
+  passwordSalt: null,
+  sessionSecret: null,
+  passwordSetAt: null,
+};
+
 export const DEFAULT_STATE: AppState = {
   settings: DEFAULT_SETTINGS,
+  auth: DEFAULT_AUTH,
   automations: [],
   jobs: [],
   apiKeys: [],

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireSession } from "@/lib/auth/require-session";
 import { readState, updateState } from "@/lib/store/db";
-
 
 const settingsSchema = z.object({
   mockMode: z.boolean(),
@@ -32,12 +32,16 @@ function redact(settings: Awaited<ReturnType<typeof readState>>["settings"]) {
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   const state = await readState();
   return NextResponse.json({ settings: redact(state.settings) });
 }
 
 export async function PUT(request: Request) {
+  const auth = await requireSession(request);
+  if (!auth.ok) return auth.response;
   try {
     const json = await request.json();
     const parsed = settingsSchema.parse(json);

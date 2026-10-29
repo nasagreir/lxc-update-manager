@@ -1,16 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Boxes,
   Clock3,
   KeyRound,
+  LogOut,
   ScrollText,
   Server,
   Settings2,
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ContainersPanel } from "@/components/dashboard/containers-panel";
 import { NodesPanel } from "@/components/dashboard/nodes-panel";
 import { JobsPanel } from "@/components/dashboard/jobs-panel";
@@ -27,6 +30,7 @@ import type {
 } from "@/lib/types";
 
 export function AppShell() {
+  const router = useRouter();
   const [tab, setTab] = useState("containers");
   const [containers, setContainers] = useState<LxcContainer[]>([]);
   const [nodes, setNodes] = useState<ProxmoxNode[]>([]);
@@ -43,6 +47,18 @@ export function AppShell() {
   const [mockMode, setMockMode] = useState(true);
   const [logJobId, setLogJobId] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  async function handleLogout() {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.replace("/login");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+    }
+  }
 
   const loadContainers = useCallback(async (detect = false) => {
     setLoading(true);
@@ -229,6 +245,16 @@ export function AppShell() {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <ThemeToggle />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void handleLogout()}
+              disabled={loggingOut}
+            >
+              <LogOut className="size-3.5" />
+              Sign out
+            </Button>
             {mockMode && (
               <Badge
                 variant="outline"

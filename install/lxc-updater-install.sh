@@ -86,21 +86,14 @@ if [[ -x "$APP_DIR/install/in-container-setup.sh" ]]; then
   # Ensure /usr/bin/update exists (extract from setup or write minimal)
   bash -lc "APP_DIR=$APP_DIR $(declare -f); true" >/dev/null 2>&1 || true
 fi
-if [[ ! -x /usr/bin/update ]]; then
+if [[ -f "$APP_DIR/scripts/lxc-updater-update.sh" ]]; then
+  install -m 755 "$APP_DIR/scripts/lxc-updater-update.sh" /usr/bin/update
+elif [[ ! -x /usr/bin/update ]]; then
   cat >/usr/bin/update <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-cd /opt/lxc-updater
-systemctl stop lxc-updater || true
-if [[ -d .git ]]; then git pull --ff-only || true; fi
-if [[ -L data ]]; then rm -f data; fi
-mkdir -p data
-npm install
-npm run build
-mkdir -p /opt/lxc-updater-data
-rm -rf data && ln -sfn /opt/lxc-updater-data data
-systemctl start lxc-updater
-echo "Updated LXC Updater"
+echo "Update script missing. Re-run the LXC Updater installer." >&2
+exit 1
 EOF
   chmod +x /usr/bin/update
 fi

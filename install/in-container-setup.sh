@@ -286,150 +286,29 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 7. Helper-script style /usr/bin/update
+# 7. Helper-script style /usr/bin/update (backup + rollback on failure)
 # ---------------------------------------------------------------------------
 msg "Installing /usr/bin/update"
-# Expand GH defaults at install time; keep the rest of the script static.
-cat >/usr/bin/update <<UPDATE
-#!/usr/bin/env bash
-set -euo pipefail
-APP_DIR="/opt/lxc-updater"
-DATA_DIR="/opt/lxc-updater-data"
-# Defaults baked at install; overridable via env or .lxc-updater-source
-DEFAULT_GH_REPO="${GH_REPO}"
-DEFAULT_REPO_URL="${REPO_URL}"
-DEFAULT_BRANCH="${REPO_BRANCH}"
-
-if [[ -f "\$APP_DIR/.lxc-updater-source" ]]; then
-  # shellcheck disable=SC1091
-  source "\$APP_DIR/.lxc-updater-source"
-fi
-GH_REPO="\${LXC_UPDATER_GH_REPO:-\${DEFAULT_GH_REPO}}"
-REPO_URL="\${LXC_UPDATER_REPO:-\${DEFAULT_REPO_URL}}"
-BRANCH="\${LXC_UPDATER_BRANCH:-\${DEFAULT_BRANCH}}"
-
-header() {
-  clear
-  cat <<'EOF'
-    __   _  __ ______   __  __          __      __
-   / /  | |/ // ____/  / / / /___  ____/ /___ _/ /____  _____
-  / /   |   // /      / / / / __ \/ __  / __ \`/ __/ _ \/ ___/
- / /___/   |/ /___   / /_/ / /_/ / /_/ / /_/ / /_/  __/ /
-/_____/_/|_|\____/   \____/ .___/\__,_/\__,_/\__/\___/_/
-                         /_/
-EOF
-  echo "  LXC Updater maintenance"
-  echo
-}
-
-ask_yes() {
-  local prompt="\${1:-Continue?}"
-  read -r -p "\$prompt [y/N] " ans
-  [[ "\${ans,,}" == "y" || "\${ans,,}" == "yes" ]]
-}
-
-refresh_from_github_tarball() {
-  local tmp
-  tmp="\$(mktemp -d)"
-  echo "Downloading https://github.com/\${GH_REPO}/archive/refs/heads/\${BRANCH}.tar.gz …"
-  curl -fsSL "https://github.com/\${GH_REPO}/archive/refs/heads/\${BRANCH}.tar.gz" \
-    | tar -xz -C "\$tmp"
-  local extracted
-  extracted="\$(find "\$tmp" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
-  if [[ -z "\$extracted" || ! -f "\$extracted/package.json" ]]; then
-    echo "Failed to extract GitHub sources for \${GH_REPO}@\${BRANCH}" >&2
-    rm -rf "\$tmp"
-    return 1
-  fi
-  # Preserve data symlink / local env; replace the app tree.
-  rsync -a --delete \
-    --exclude 'data' \
-    --exclude 'node_modules' \
-    --exclude '.next' \
-    --exclude '.lxc-updater-source' \
-    "\$extracted"/ "\$APP_DIR"/
-  cat >"\$APP_DIR/.lxc-updater-source" <<SRCEOF
-LXC_UPDATER_GH_REPO=\${GH_REPO}
-LXC_UPDATER_REPO=\${REPO_URL}
-LXC_UPDATER_BRANCH=\${BRANCH}
-SRCEOF
-  rm -rf "\$tmp"
-}
-
-header
-if [[ ! -d "\$APP_DIR/.git" && ! -f "\$APP_DIR/package.json" ]]; then
-  echo "No LXC Updater installation found in \$APP_DIR"
-  exit 1
-fi
-
-echo "This will:"
-echo "  • refresh Debian packages (optional)"
-echo "  • pull the latest app code from GitHub (\${GH_REPO}@\${BRANCH})"
-echo "  • rebuild and restart lxc-updater"
-echo "App data in \$DATA_DIR is preserved (settings, jobs, API keys)."
-echo
-if ! ask_yes "Proceed with update?"; then
-  echo "Aborted."
-  exit 0
-fi
-
-export DEBIAN_FRONTEND=noninteractive
-if ask_yes "Also run apt update && dist-upgrade first?"; then
-  apt-get update -y
-  apt-get -y -o Dpkg::Options::="--force-confdef" \
-    -o Dpkg::Options::="--force-confold" dist-upgrade
-fi
-
-systemctl stop lxc-updater.service || true
-
-if [[ -d "\$APP_DIR/.git" ]]; then
-  cd "\$APP_DIR"
-  git remote set-url origin "\$REPO_URL" 2>/dev/null || \
-    git remote add origin "\$REPO_URL" 2>/dev/null || true
-  git fetch --depth 1 origin "\$BRANCH" || git fetch --depth 1 origin
-  git reset --hard "origin/\${BRANCH}" 2>/dev/null || git pull --ff-only || true
+UPDATE_SRC="${APP_DIR}/scripts/lxc-updater-update.sh"
+if [[ -f "$UPDATE_SRC" ]]; then
+  # Bake this install's repo defaults into the shipped script copy.
+  sed -e "s|^DEFAULT_GH_REPO=.*|DEFAULT_GH_REPO=\"${GH_REPO}\"|" \
+      -e "s|^DEFAULT_REPO_URL=.*|DEFAULT_REPO_URL=\"${REPO_URL}\"|" \
+      -e "s|^DEFAULT_BRANCH=.*|DEFAULT_BRANCH=\"${REPO_BRANCH}\"|" \
+      "$UPDATE_SRC" >/usr/bin/update
+  chmod +x /usr/bin/update
+  chmod +x "$UPDATE_SRC" || true
+  ok "Installed update command (temp backup + auto-rollback on failure)"
 else
-  apt-get install -y --no-install-recommends curl ca-certificates rsync >/dev/null
-  refresh_from_github_tarball
-fi
-
-cd "\$APP_DIR"
-# Turbopack panics if data/ is a symlink outside the app tree. Replace it with
-# a real directory for the build, then restore the persistent data link.
-if [[ -L "\$APP_DIR/data" ]]; then
-  rm -f "\$APP_DIR/data"
-fi
-mkdir -p "\$APP_DIR/data"
-npm install
-npm run build
-
-mkdir -p "\$DATA_DIR"
-if [[ -f "\$APP_DIR/data/state.json" && ! -L "\$APP_DIR/data" && ! -f "\$DATA_DIR/state.json" ]]; then
-  mv "\$APP_DIR/data/state.json" "\$DATA_DIR/"
-fi
-rm -rf "\$APP_DIR/data"
-ln -sfn "\$DATA_DIR" "\$APP_DIR/data"
-
-# Keep password recovery CLI current after app refreshes.
-if [[ -f "\$APP_DIR/scripts/lxc-updater-passwd.mjs" ]]; then
-  cat >/usr/bin/lxc-updater-passwd <<'PASSWD'
+  warn "scripts/lxc-updater-update.sh missing — writing minimal update stub"
+  cat >/usr/bin/update <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
-export LXC_UPDATER_DATA_DIR="\${LXC_UPDATER_DATA_DIR:-/opt/lxc-updater-data}"
-exec node /opt/lxc-updater/scripts/lxc-updater-passwd.mjs "\$@"
-PASSWD
-  chmod +x /usr/bin/lxc-updater-passwd
-  chmod +x "\$APP_DIR/scripts/lxc-updater-passwd.mjs" || true
+echo "Update script missing. Re-run the LXC Updater installer." >&2
+exit 1
+EOF
+  chmod +x /usr/bin/update
 fi
-
-systemctl start lxc-updater.service
-echo
-echo "Update complete. Service status:"
-systemctl --no-pager --full status lxc-updater.service || true
-echo "Password reset: lxc-updater-passwd --reset"
-UPDATE
-chmod +x /usr/bin/update
-ok "Installed update command"
 
 # ---------------------------------------------------------------------------
 # 7b. Web UI password CLI (set / recover without the browser)

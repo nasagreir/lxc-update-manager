@@ -30,7 +30,7 @@ pct enter <CTID>
 update
 ```
 
-That pulls the latest code from GitHub, rebuilds, and restarts `lxc-updater`. Settings, jobs, automations, and API keys under `/opt/lxc-updater-data` are preserved. You only need a full host reinstall when changing CT hardware (disk/CPU/network) or recreating the guest.
+That pulls the latest code from GitHub, rebuilds, and restarts `lxc-updater`. Before changing the app tree it snapshots `/opt/lxc-updater` to a temp backup under `/var/tmp`; if the download, build, or service start fails, it restores that backup and restarts the previous version. Settings, jobs, automations, and API keys under `/opt/lxc-updater-data` are never rolled back. You only need a full host reinstall when changing CT hardware (disk/CPU/network) or recreating the guest.
 
 The installer fully provisions the guest, similar to community helper scripts:
 
@@ -182,7 +182,7 @@ Inside the LXC console:
 update
 ```
 
-Follow the prompts (same pattern as other helper-script containers).
+Follow the prompts (same pattern as other helper-script containers). A failed update rolls the app tree back automatically from the temp backup.
 
 ## How community-script updates work
 

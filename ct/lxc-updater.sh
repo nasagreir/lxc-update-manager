@@ -50,6 +50,20 @@ function update_script() {
   fi
   msg_ok "Backed up Data"
 
+  BACKUP_DIR="$(mktemp -d /var/tmp/lxc-updater-backup.XXXXXX)"
+  msg_info "Snapshotting app to ${BACKUP_DIR}"
+  rsync -a --exclude 'data' /opt/lxc-updater/ "${BACKUP_DIR}/app/"
+  msg_ok "Snapshot ready"
+
+  restore_ct_backup() {
+    msg_error "Update failed — restoring previous app from backup"
+    rsync -a --delete --exclude 'data' "${BACKUP_DIR}/app"/ /opt/lxc-updater/
+    rm -rf /opt/lxc-updater/data
+    ln -sfn /opt/lxc-updater-data /opt/lxc-updater/data
+    systemctl start lxc-updater
+    rm -rf "${BACKUP_DIR}"
+  }
+
   if [[ -d /opt/lxc-updater/.git ]]; then
     msg_info "Pulling latest sources"
     cd /opt/lxc-updater
@@ -63,6 +77,7 @@ function update_script() {
   else
     msg_error "Not a git checkout and no GitHub release helper available"
     systemctl start lxc-updater
+    rm -rf "${BACKUP_DIR}"
     exit
   fi
 
@@ -73,8 +88,10 @@ function update_script() {
     rm -f /opt/lxc-updater/data
   fi
   mkdir -p /opt/lxc-updater/data
-  $STD npm install
-  $STD npm run build
+  if ! $STD npm install || ! $STD npm run build; then
+    restore_ct_backup
+    exit 1
+  fi
   mkdir -p /opt/lxc-updater-data
   rm -rf /opt/lxc-updater/data
   ln -sfn /opt/lxc-updater-data /opt/lxc-updater/data
@@ -82,6 +99,12 @@ function update_script() {
 
   msg_info "Starting Service"
   systemctl start lxc-updater
+  sleep 2
+  if ! systemctl is-active --quiet lxc-updater; then
+    restore_ct_backup
+    exit 1
+  fi
+  rm -rf "${BACKUP_DIR}"
   msg_ok "Started Service"
   msg_ok "Updated successfully!"
   exit

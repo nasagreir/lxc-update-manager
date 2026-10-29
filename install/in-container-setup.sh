@@ -394,10 +394,23 @@ mkdir -p "\$DATA_DIR"
 rm -rf "\$APP_DIR/data"
 ln -sfn "\$DATA_DIR" "\$APP_DIR/data"
 
+# Keep password recovery CLI current after app refreshes.
+if [[ -f "\$APP_DIR/scripts/lxc-updater-passwd.mjs" ]]; then
+  cat >/usr/bin/lxc-updater-passwd <<'PASSWD'
+#!/usr/bin/env bash
+set -euo pipefail
+export LXC_UPDATER_DATA_DIR="\${LXC_UPDATER_DATA_DIR:-/opt/lxc-updater-data}"
+exec node /opt/lxc-updater/scripts/lxc-updater-passwd.mjs "\$@"
+PASSWD
+  chmod +x /usr/bin/lxc-updater-passwd
+  chmod +x "\$APP_DIR/scripts/lxc-updater-passwd.mjs" || true
+fi
+
 systemctl start lxc-updater.service
 echo
 echo "Update complete. Service status:"
 systemctl --no-pager --full status lxc-updater.service || true
+echo "Password reset: lxc-updater-passwd --reset"
 UPDATE
 chmod +x /usr/bin/update
 ok "Installed update command"

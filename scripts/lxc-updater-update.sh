@@ -78,11 +78,13 @@ link_persistent_data() {
 }
 
 prepare_data_for_build() {
-  # Turbopack panics if data/ is a symlink outside the app tree.
-  if [[ -L "$APP_DIR/data" ]]; then
-    rm -f "$APP_DIR/data"
-  fi
+  # Turbopack panics if data/ is a symlink outside the app tree (and can keep
+  # that failure in .next filesystem cache). Always use a real empty data dir
+  # and a clean .next for the build; persistent data lives in DATA_DIR.
+  rm -rf "$APP_DIR/data" "$APP_DIR/.next"
   mkdir -p "$APP_DIR/data"
+  # Prefer the absolute data dir at runtime so builds never need ./data.
+  export LXC_UPDATER_DATA_DIR="${LXC_UPDATER_DATA_DIR:-$DATA_DIR}"
 }
 
 install_helper_commands() {

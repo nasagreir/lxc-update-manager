@@ -1,9 +1,22 @@
-import { promises as fs } from "fs";
+import { existsSync, promises as fs } from "fs";
 import path from "path";
 import { DEFAULT_AUTH, DEFAULT_STATE } from "@/lib/store/defaults";
 import type { AppState } from "@/lib/types";
 
-const DATA_DIR = process.env.LXC_UPDATER_DATA_DIR || path.join(process.cwd(), "data");
+function resolveDataDir(): string {
+  const fromEnv = process.env.LXC_UPDATER_DATA_DIR?.trim();
+  if (fromEnv) return fromEnv;
+  // Production CT layout (systemd normally sets LXC_UPDATER_DATA_DIR).
+  if (existsSync("/opt/lxc-updater-data")) {
+    return "/opt/lxc-updater-data";
+  }
+  // Local/dev store next to the app. Build the "data" segment dynamically —
+  // a static path.join(cwd, "data") becomes a Turbopack DirAssetReference and
+  // panics during `next build` when ./data is a symlink outside the app tree.
+  return path.join(process.cwd(), ["da", "ta"].join(""));
+}
+
+const DATA_DIR = resolveDataDir();
 const STATE_FILE = path.join(DATA_DIR, "state.json");
 
 let writeQueue: Promise<void> = Promise.resolve();

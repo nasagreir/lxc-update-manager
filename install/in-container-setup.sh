@@ -220,11 +220,10 @@ EOF
 msg "Installing npm packages and building production bundle"
 cd "$APP_DIR"
 # Turbopack panics if data/ is a symlink that leaves the app tree (e.g. to
-# /opt/lxc-updater-data). Build against a real directory, then re-link.
-if [[ -L "$APP_DIR/data" ]]; then
-  rm -f "$APP_DIR/data"
-fi
+# /opt/lxc-updater-data). Build against a real directory + clean .next.
+rm -rf "$APP_DIR/data" "$APP_DIR/.next"
 mkdir -p "$APP_DIR/data"
+export LXC_UPDATER_DATA_DIR="${LXC_UPDATER_DATA_DIR:-$DATA_DIR}"
 # Full install so Next.js can compile (typescript / tailwind are needed at build)
 npm install
 npm run build

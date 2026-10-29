@@ -46,10 +46,9 @@ fi
 msg_info "Building LXC Updater"
 cd "$APP_DIR"
 # Turbopack cannot build while data/ symlinks outside the app tree.
-if [[ -L "$APP_DIR/data" ]]; then
-  rm -f "$APP_DIR/data"
-fi
+rm -rf "$APP_DIR/data" "$APP_DIR/.next"
 mkdir -p "$APP_DIR/data"
+export LXC_UPDATER_DATA_DIR="${LXC_UPDATER_DATA_DIR:-$DATA_DIR}"
 $STD npm install
 $STD npm run build
 mkdir -p "$DATA_DIR"

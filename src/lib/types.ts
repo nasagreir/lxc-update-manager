@@ -11,6 +11,11 @@ export type JobStatus =
 
 export type TriggerSource = "manual" | "automation" | "api";
 
+/** What a job updates — LXC guest or Proxmox host OS. */
+export type JobTarget = "container" | "node";
+
+export type NodeOnlineStatus = "online" | "offline" | "unknown";
+
 export interface LxcContainer {
   vmid: number;
   name: string;
@@ -30,10 +35,32 @@ export interface LxcContainer {
   notes?: string;
 }
 
+/** Proxmox host (node) with apt system-update status. */
+export interface ProxmoxNode {
+  /** Cluster node name (e.g. pve1). */
+  name: string;
+  status: NodeOnlineStatus;
+  /** Resolved SSH target used for host apt commands. */
+  sshHost: string;
+  lastCheckedAt: string | null;
+  lastUpdatedAt: string | null;
+  lastUpdateStatus: JobStatus | null;
+  /** null = not checked yet */
+  updateAvailable: boolean | null;
+  updateAvailableDetail: string | null;
+  pendingUpdateCount: number;
+}
+
 export interface UpdateJob {
   id: string;
+  /** Defaults to container for older persisted jobs. */
+  target: JobTarget;
+  /** Container VMID; 0 for node jobs. */
   vmid: number;
+  /** Container name, or node display name for host jobs. */
   containerName: string;
+  /** Proxmox node name — set for node jobs and optionally for CT jobs. */
+  node?: string;
   status: JobStatus;
   trigger: TriggerSource;
   automationId?: string;
@@ -152,6 +179,18 @@ export interface AppState {
       updateAvailableDetail: string | null;
       pendingUpdateCount: number;
       notes?: string;
+    }
+  >;
+  /** Cached Proxmox host (node) system-update status, keyed by node name. */
+  nodeMeta: Record<
+    string,
+    {
+      lastCheckedAt: string | null;
+      lastUpdatedAt: string | null;
+      lastUpdateStatus: JobStatus | null;
+      updateAvailable: boolean | null;
+      updateAvailableDetail: string | null;
+      pendingUpdateCount: number;
     }
   >;
 }

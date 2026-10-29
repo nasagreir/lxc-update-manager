@@ -1,24 +1,42 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Boxes, Clock3, KeyRound, ScrollText, Settings2 } from "lucide-react";
+import {
+  Boxes,
+  Clock3,
+  KeyRound,
+  ScrollText,
+  Server,
+  Settings2,
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ContainersPanel } from "@/components/dashboard/containers-panel";
+import { NodesPanel } from "@/components/dashboard/nodes-panel";
 import { JobsPanel } from "@/components/dashboard/jobs-panel";
 import { AutomationsPanel } from "@/components/dashboard/automations-panel";
 import { ApiKeysPanel } from "@/components/dashboard/api-keys-panel";
 import { SettingsPanel } from "@/components/dashboard/settings-panel";
 import { JobLogDialog } from "@/components/dashboard/job-log-dialog";
-import type { Automation, LxcContainer, UpdateJob } from "@/lib/types";
+import type {
+  Automation,
+  LxcContainer,
+  ProxmoxNode,
+  UpdateJob,
+} from "@/lib/types";
 
 export function AppShell() {
   const [tab, setTab] = useState("containers");
   const [containers, setContainers] = useState<LxcContainer[]>([]);
+  const [nodes, setNodes] = useState<ProxmoxNode[]>([]);
   const [jobs, setJobs] = useState<UpdateJob[]>([]);
   const [automations, setAutomations] = useState<Automation[]>([]);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  const [nodesLoading, setNodesLoading] = useState(true);
+  const [nodesChecking, setNodesChecking] = useState(false);
+  const [nodesUpdating, setNodesUpdating] = useState(false);
+  const [nodesError, setNodesError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mockMode, setMockMode] = useState(true);
@@ -63,6 +81,36 @@ export function AppShell() {
     if (res.ok) setJobs(data.jobs);
   }, []);
 
+  const loadNodes = useCallback(async () => {
+    setNodesLoading(true);
+    setNodesError(null);
+    try {
+      const res = await fetch("/api/nodes");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to load nodes");
+      setNodes(data.nodes);
+    } catch (err) {
+      setNodesError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setNodesLoading(false);
+    }
+  }, []);
+
+  const checkNodeUpdates = useCallback(async () => {
+    setNodesChecking(true);
+    setNodesError(null);
+    try {
+      const res = await fetch("/api/nodes?check=1");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Node update check failed");
+      setNodes(data.nodes);
+    } catch (err) {
+      setNodesError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setNodesChecking(false);
+    }
+  }, []);
+
   const loadAutomations = useCallback(async () => {
     const res = await fetch("/api/automations");
     const data = await res.json();
@@ -78,11 +126,12 @@ export function AppShell() {
   const refreshAll = useCallback(async () => {
     await Promise.all([
       loadContainers(false),
+      loadNodes(),
       loadJobs(),
       loadAutomations(),
       loadSettingsFlag(),
     ]);
-  }, [loadAutomations, loadContainers, loadJobs, loadSettingsFlag]);
+  }, [loadAutomations, loadContainers, loadJobs, loadNodes, loadSettingsFlag]);
 
   useEffect(() => {
     void refreshAll();
@@ -99,9 +148,10 @@ export function AppShell() {
     const timer = setInterval(() => {
       void loadJobs();
       void loadContainers(false);
+      void loadNodes();
     }, 2000);
     return () => clearInterval(timer);
-  }, [hasActiveJobs, loadContainers, loadJobs]);
+  }, [hasActiveJobs, loadContainers, loadJobs, loadNodes]);
 
   async function handleUpdate(vmids: number[]) {
     setUpdating(true);
@@ -127,9 +177,34 @@ export function AppShell() {
     }
   }
 
+  async function handleNodeUpdate(nodeNames: string[]) {
+    setNodesUpdating(true);
+    setNodesError(null);
+    try {
+      const res = await fetch("/api/nodes/updates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodes: nodeNames, staggerSeconds: 30 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Host update failed to start");
+      await Promise.all([loadJobs(), loadNodes()]);
+      setTab("jobs");
+      if (data.jobs?.[0]?.id) {
+        setLogJobId(data.jobs[0].id);
+        setLogOpen(true);
+      }
+    } catch (err) {
+      setNodesError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setNodesUpdating(false);
+    }
+  }
+
   const runningCount = containers.filter((c) => c.status === "running").length;
-  const nodeCount = new Set(containers.map((c) => c.node)).size;
+  const nodeCount = nodes.length || new Set(containers.map((c) => c.node)).size;
   const availableCount = containers.filter((c) => c.updateAvailable).length;
+  const nodeUpdatesAvailable = nodes.filter((n) => n.updateAvailable).length;
   const activeJobs = jobs.filter(
     (j) => j.status === "queued" || j.status === "running",
   ).length;
@@ -170,7 +245,13 @@ export function AppShell() {
             )}
             {availableCount > 0 && (
               <Badge className="bg-red-600 text-white hover:bg-red-600">
-                {availableCount} update{availableCount === 1 ? "" : "s"} available
+                {availableCount} CT update{availableCount === 1 ? "" : "s"}
+              </Badge>
+            )}
+            {nodeUpdatesAvailable > 0 && (
+              <Badge className="bg-orange-600 text-white hover:bg-orange-600">
+                {nodeUpdatesAvailable} host update
+                {nodeUpdatesAvailable === 1 ? "" : "s"}
               </Badge>
             )}
             {activeJobs > 0 && (
@@ -187,6 +268,15 @@ export function AppShell() {
           <TabsTrigger value="containers" className="gap-1.5">
             <Boxes className="size-4" />
             Containers
+          </TabsTrigger>
+          <TabsTrigger value="nodes" className="gap-1.5">
+            <Server className="size-4" />
+            Nodes
+            {nodeUpdatesAvailable > 0 && (
+              <span className="ml-1 rounded-full bg-orange-600 px-1.5 text-[10px] text-white">
+                {nodeUpdatesAvailable}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="jobs" className="gap-1.5">
             <ScrollText className="size-4" />
@@ -221,6 +311,18 @@ export function AppShell() {
             onCheckUpdates={() => void checkUpdates()}
             onUpdate={handleUpdate}
             updating={updating}
+          />
+        </TabsContent>
+        <TabsContent value="nodes" className="flex-1">
+          <NodesPanel
+            nodes={nodes}
+            loading={nodesLoading}
+            checking={nodesChecking}
+            error={nodesError}
+            onRefresh={() => void loadNodes()}
+            onCheckUpdates={() => void checkNodeUpdates()}
+            onUpdate={handleNodeUpdate}
+            updating={nodesUpdating}
           />
         </TabsContent>
         <TabsContent value="jobs" className="flex-1">

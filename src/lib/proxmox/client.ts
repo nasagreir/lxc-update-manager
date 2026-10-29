@@ -1,5 +1,10 @@
-import type { AppSettings, ContainerStatus, LxcContainer } from "@/lib/types";
-import { parseIncludeNodes } from "@/lib/proxmox/nodes";
+import type {
+  AppSettings,
+  ContainerStatus,
+  LxcContainer,
+  NodeOnlineStatus,
+} from "@/lib/types";
+import { parseIncludeNodes, resolveSshHostForNode } from "@/lib/proxmox/nodes";
 import { MOCK_CONTAINERS } from "@/lib/store/defaults";
 
 interface PveLxcEntry {
@@ -14,6 +19,12 @@ interface PveLxcEntry {
 interface PveNode {
   node: string;
   status?: string;
+}
+
+export interface NodeInventory {
+  name: string;
+  status: NodeOnlineStatus;
+  sshHost: string;
 }
 
 function authHeader(settings: AppSettings): string {
@@ -117,13 +128,42 @@ function mapStatus(status?: string): ContainerStatus {
   return "unknown";
 }
 
-export async function listNodes(settings: AppSettings): Promise<string[]> {
+function mapNodeStatus(status?: string): NodeOnlineStatus {
+  if (status === "online") return "online";
+  if (status === "offline") return "offline";
+  return "unknown";
+}
+
+export async function listNodeInventory(
+  settings: AppSettings,
+): Promise<NodeInventory[]> {
+  const include = parseIncludeNodes(settings);
+
   if (settings.mockMode) {
-    const fromMock = [...new Set(MOCK_CONTAINERS.map((c) => c.node))];
-    return fromMock.sort();
+    const names = [...new Set(MOCK_CONTAINERS.map((c) => c.node))].sort();
+    return names
+      .filter((n) => include.length === 0 || include.includes(n))
+      .map((name) => ({
+        name,
+        status: "online" as const,
+        sshHost: resolveSshHostForNode(settings, name),
+      }));
   }
+
   const nodes = await pveFetchSafe<PveNode[]>(settings, "/nodes");
-  return nodes.map((n) => n.node).sort();
+  return nodes
+    .map((n) => ({
+      name: n.node,
+      status: mapNodeStatus(n.status),
+      sshHost: resolveSshHostForNode(settings, n.node),
+    }))
+    .filter((n) => include.length === 0 || include.includes(n.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function listNodes(settings: AppSettings): Promise<string[]> {
+  const inventory = await listNodeInventory(settings);
+  return inventory.map((n) => n.name);
 }
 
 type LxcInventory = Omit<

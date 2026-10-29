@@ -337,8 +337,10 @@ export async function enqueueUpdates(opts: {
 
     const job: UpdateJob = {
       id: randomUUID(),
+      target: "container",
       vmid,
       containerName: container.name,
+      node: container.node,
       status: "queued",
       trigger: opts.trigger,
       automationId: opts.automationId,
@@ -376,6 +378,7 @@ async function runJob(jobId: string) {
   const state = await readState();
   const job = state.jobs.find((j) => j.id === jobId);
   if (!job || job.status === "cancelled") return;
+  if (job.target === "node") return;
 
   if (runningVmids.has(job.vmid)) {
     await patchJob(jobId, {

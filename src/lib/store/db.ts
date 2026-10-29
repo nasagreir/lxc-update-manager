@@ -27,12 +27,17 @@ function mergeState(raw: Partial<AppState> | null): AppState {
     checkBeforeRun: a.checkBeforeRun ?? false,
     onlyWhenUpdatesAvailable: a.onlyWhenUpdatesAvailable ?? false,
   }));
+  const jobs = (raw?.jobs ?? []).map((j) => ({
+    ...j,
+    target: j.target ?? ("container" as const),
+  }));
   return {
     settings,
     automations,
-    jobs: raw?.jobs ?? [],
+    jobs,
     apiKeys: raw?.apiKeys ?? [],
     containerMeta: raw?.containerMeta ?? {},
+    nodeMeta: raw?.nodeMeta ?? {},
   };
 }
 

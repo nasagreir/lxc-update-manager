@@ -1,4 +1,5 @@
-import { pctExec } from "@/lib/proxmox/exec";
+import { hostExec, pctExec } from "@/lib/proxmox/exec";
+import { MOCK_NODE_UPDATES } from "@/lib/store/defaults";
 import type { AppSettings, UpdateMethod } from "@/lib/types";
 
 export interface UpdateAvailability {
@@ -185,4 +186,79 @@ export async function checkContainerUpdates(
 
   const parsed = parseProbeOutput(result.stdout);
   return { ...parsed, checkedAt, method };
+}
+
+function buildHostAptProbeScript(): string {
+  return [
+    "set +e",
+    "export DEBIAN_FRONTEND=noninteractive",
+    "apt-get update -qq >/dev/null 2>&1",
+    "n=$(apt-get -s -o Debug::NoLocking=1 dist-upgrade 2>/dev/null | grep -c '^Inst ' || true)",
+    'n=${n:-0}',
+    'if [ "$n" -gt 0 ]; then echo "RESULT|1|$n|$n apt package(s) upgradable on host"; else echo "RESULT|0|0|Host apt up to date"; fi',
+  ].join("; ");
+}
+
+/** Deterministic mock host availability for demo mode. */
+export function mockNodeAvailability(node: string): UpdateAvailability {
+  const checkedAt = new Date().toISOString();
+  const seed = MOCK_NODE_UPDATES[node];
+  if (seed) {
+    return {
+      available: seed.available,
+      detail: seed.detail,
+      pendingCount: seed.pendingCount,
+      checkedAt,
+      method: "apt",
+    };
+  }
+  return {
+    available: false,
+    detail: "Host apt up to date",
+    pendingCount: 0,
+    checkedAt,
+    method: "apt",
+  };
+}
+
+/** Probe apt updates on the Proxmox host OS for a specific node. */
+export async function checkHostUpdates(
+  settings: AppSettings,
+  node: string,
+): Promise<UpdateAvailability> {
+  const checkedAt = new Date().toISOString();
+
+  if (settings.mockMode) {
+    return mockNodeAvailability(node);
+  }
+
+  const result = await hostExec(
+    settings,
+    node,
+    ["bash", "-lc", buildHostAptProbeScript()],
+    180,
+  );
+
+  if (result.timedOut) {
+    return {
+      available: false,
+      detail: "Host update check timed out",
+      pendingCount: 0,
+      checkedAt,
+      method: "apt",
+    };
+  }
+
+  if ((result.code ?? 1) !== 0 && !result.stdout.includes("RESULT|")) {
+    return {
+      available: false,
+      detail: `Host check failed: ${(result.stderr || result.stdout || "unknown error").trim().slice(0, 200)}`,
+      pendingCount: 0,
+      checkedAt,
+      method: "apt",
+    };
+  }
+
+  const parsed = parseProbeOutput(result.stdout);
+  return { ...parsed, checkedAt, method: "apt" };
 }

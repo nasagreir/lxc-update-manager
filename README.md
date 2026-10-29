@@ -69,6 +69,7 @@ This repo also ships the usual pair for upstream-style installs:
 - Lists all LXC containers across the Proxmox cluster (multi-node)
 - Detects how each CT updates: community `update` command, `apt`, or `apk`
 - **Check for updates** — pending apt/apk packages, plus git remotes behind upstream for helper-script CTs; rows needing work show a red **Update available** button
+- **Nodes** — separate tab for Proxmox **host** system updates (apt on each node via SSH); each cluster node is listed distinctly with its own check/update status
 - Runs updates from the browser (with live job logs)
 - **Automations** — cron schedules that can re-check first and only update outdated CTs
 - **API keys** — Bearer auth for Grok / other bots via `/api/v1/*`
@@ -93,8 +94,11 @@ In the **Automations** tab, create a schedule (daily / weekly / monthly / cron).
 | --- | --- | --- |
 | GET | `/api/v1/status` | Cluster summary |
 | GET | `/api/v1/containers` | List CTs (`?check=1`, `?available=1`, `?node=pve1`) |
-| POST | `/api/v1/containers/check` | Probe for pending updates |
-| POST | `/api/v1/updates` | Start updates (`{ "vmids": [101] }` or `{ "allAvailable": true }`) |
+| POST | `/api/v1/containers/check` | Probe for pending CT updates |
+| POST | `/api/v1/updates` | Start CT updates (`{ "vmids": [101] }` or `{ "allAvailable": true }`) |
+| GET | `/api/v1/nodes` | List Proxmox hosts (`?check=1`, `?available=1`) |
+| POST | `/api/v1/nodes/check` | Probe host apt updates per node |
+| POST | `/api/v1/nodes/updates` | Start host updates (`{ "nodes": ["pve1"] }` or `{ "allAvailable": true }`) |
 | GET | `/api/v1/jobs` | Job history (`?status=running`) |
 | GET | `/api/v1/jobs/:id` | Job detail + log |
 | GET/POST | `/api/v1/automations` | List / create schedules |

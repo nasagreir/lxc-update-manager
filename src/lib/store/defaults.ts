@@ -25,6 +25,29 @@ export const DEFAULT_STATE: AppState = {
   jobs: [],
   apiKeys: [],
   containerMeta: {},
+  nodeMeta: {},
+};
+
+/** Deterministic mock host update needs (node name → pending apt packages). */
+export const MOCK_NODE_UPDATES: Record<
+  string,
+  { available: boolean; pendingCount: number; detail: string }
+> = {
+  pve1: {
+    available: true,
+    pendingCount: 12,
+    detail: "12 apt package(s) upgradable (incl. pve-kernel)",
+  },
+  pve2: {
+    available: false,
+    pendingCount: 0,
+    detail: "Host apt up to date",
+  },
+  pve3: {
+    available: true,
+    pendingCount: 4,
+    detail: "4 apt package(s) upgradable",
+  },
 };
 
 /** Sample fleet used when mockMode is enabled. */

@@ -88,6 +88,51 @@ export async function pctExec(
 }
 
 /**
+ * Run a command on the Proxmox host OS (not inside an LXC).
+ * Used for node system (apt) updates. Resolves SSH per node via nodeSshHosts.
+ */
+export async function hostExec(
+  settings: AppSettings,
+  node: string,
+  remoteCommand: string[],
+  timeoutSeconds?: number,
+): Promise<ExecResult> {
+  const timeoutMs = (timeoutSeconds ?? settings.updateTimeoutSeconds) * 1000;
+
+  if (settings.execMode === "local") {
+    // Local mode only makes sense when this app runs on the target node.
+    return runProcess(remoteCommand[0]!, remoteCommand.slice(1), timeoutMs);
+  }
+
+  const sshHost = resolveSshHostForNode(settings, node);
+  const sshArgs = [
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "StrictHostKeyChecking=accept-new",
+    "-p",
+    String(settings.sshPort),
+    "-i",
+    settings.sshPrivateKeyPath,
+    `${settings.sshUser}@${sshHost}`,
+    ...remoteCommand,
+  ];
+
+  return runProcess("ssh", sshArgs, timeoutMs);
+}
+
+/** Non-interactive apt dist-upgrade on a Proxmox host. */
+export function buildHostAptUpdateScript(): string {
+  return [
+    "export DEBIAN_FRONTEND=noninteractive",
+    "export NEEDRESTART_MODE=a",
+    "apt-get update -y",
+    "apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade",
+    "apt-get -y autoremove --purge",
+  ].join(" && ");
+}
+
+/**
  * Build a bash -lc script that drives community-script `update` non-interactively
  * by feeding predetermined answers (usually "y") on stdin.
  */

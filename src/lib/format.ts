@@ -28,15 +28,17 @@ export function methodLabel(method: UpdateMethod): string {
 }
 
 export function statusTone(
-  status: JobStatus | "running" | "stopped" | "unknown",
+  status: JobStatus | "running" | "stopped" | "unknown" | "online" | "offline",
 ): string {
   switch (status) {
     case "running":
     case "succeeded":
+    case "online":
       return "bg-emerald-500/15 text-emerald-800 border-emerald-500/30";
     case "queued":
       return "bg-sky-500/15 text-sky-800 border-sky-500/30";
     case "failed":
+    case "offline":
       return "bg-red-500/15 text-red-800 border-red-500/30";
     case "stopped":
     case "cancelled":

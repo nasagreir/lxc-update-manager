@@ -16,7 +16,7 @@ export function JobsPanel({
   if (jobs.length === 0) {
     return (
       <div className="animate-fade-up py-16 text-center text-muted-foreground">
-        No update jobs yet. Select containers and run an update to see logs here.
+        No update jobs yet. Update a container or Proxmox host to see logs here.
       </div>
     );
   }
@@ -27,7 +27,7 @@ export function JobsPanel({
         <thead>
           <tr className="border-b bg-slate-50/80 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="px-3 py-3 font-medium">When</th>
-            <th className="px-3 py-3 font-medium">Container</th>
+            <th className="px-3 py-3 font-medium">Target</th>
             <th className="px-3 py-3 font-medium">Method</th>
             <th className="px-3 py-3 font-medium">Trigger</th>
             <th className="px-3 py-3 font-medium">Status</th>
@@ -44,13 +44,34 @@ export function JobsPanel({
                 {formatRelative(job.startedAt ?? job.finishedAt)}
               </td>
               <td className="px-3 py-3">
-                <span className="font-mono text-xs text-muted-foreground">
-                  {job.vmid}
-                </span>{" "}
-                <span className="font-medium">{job.containerName}</span>
+                {job.target === "node" ? (
+                  <>
+                    <Badge
+                      variant="outline"
+                      className="mr-1.5 border-teal-600/30 bg-teal-50 text-teal-900"
+                    >
+                      Host
+                    </Badge>
+                    <span className="font-medium">{job.node ?? job.containerName}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {job.vmid}
+                    </span>{" "}
+                    <span className="font-medium">{job.containerName}</span>
+                    {job.node && (
+                      <span className="ml-1 font-mono text-xs text-muted-foreground">
+                        @{job.node}
+                      </span>
+                    )}
+                  </>
+                )}
               </td>
               <td className="px-3 py-3 font-mono text-xs">
-                {methodLabel(job.updateMethod)}
+                {job.target === "node"
+                  ? "host apt"
+                  : methodLabel(job.updateMethod)}
               </td>
               <td className="px-3 py-3 capitalize text-muted-foreground">
                 {job.trigger}

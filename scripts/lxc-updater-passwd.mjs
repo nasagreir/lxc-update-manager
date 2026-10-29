@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Set / reset the LXC Updater web UI password from the CT console.
+ * Set / reset the LXC Updater web UI username + password from the CT console.
  *
  * Usage:
  *   lxc-updater-passwd              Interactive set (asks current if set)
@@ -44,16 +44,23 @@ const passwordFromFlag =
   (passwordFlagIdx >= 0 ? rawArgs[passwordFlagIdx + 1] : undefined) ||
   process.env.LXC_UPDATER_PASSWORD ||
   "";
+const usernameEq = rawArgs.find((a) => a.startsWith("--username="));
+const usernameFlagIdx = rawArgs.indexOf("--username");
+const usernameFromFlag =
+  usernameEq?.slice("--username=".length) ||
+  (usernameFlagIdx >= 0 ? rawArgs[usernameFlagIdx + 1] : undefined) ||
+  process.env.LXC_UPDATER_USERNAME ||
+  "";
 
 if (wantHelp) {
   console.log(`Usage:
-  lxc-updater-passwd           Set or change the web UI password
-  lxc-updater-passwd --reset   Set a new password (no current password needed)
+  lxc-updater-passwd           Set or change the web UI username/password
+  lxc-updater-passwd --reset   Set credentials (no current password needed)
   lxc-updater-passwd --check   Exit 0 if a password is already configured
 
 Non-interactive:
-  LXC_UPDATER_PASSWORD='…' lxc-updater-passwd --reset
-  lxc-updater-passwd --reset --password '…'
+  LXC_UPDATER_USERNAME='admin' LXC_UPDATER_PASSWORD='…' lxc-updater-passwd --reset
+  lxc-updater-passwd --reset --username admin --password '…'
 `);
   process.exit(0);
 }
@@ -82,6 +89,7 @@ function readState() {
     return {
       settings: {},
       auth: {
+        username: "admin",
         passwordHash: null,
         passwordSalt: null,
         sessionSecret: null,
@@ -98,6 +106,7 @@ function readState() {
   return {
     ...raw,
     auth: {
+      username: "admin",
       passwordHash: null,
       passwordSalt: null,
       sessionSecret: null,
@@ -165,7 +174,7 @@ async function main() {
 
   const rl = createInterface({ input, output, terminal: true });
   try {
-    console.log("LXC Updater — web UI password");
+    console.log("LXC Updater — web UI login");
     console.log(`Data file: ${STATE_FILE}`);
     console.log();
 
@@ -173,13 +182,29 @@ async function main() {
       const current = await ask(rl, "Current password: ", { silent: true });
       if (!verifyPassword(current, state.auth)) {
         stderr.write("Current password is incorrect.\n");
-        stderr.write("Use --reset to set a new password without the old one.\n");
+        stderr.write("Use --reset to set credentials without the old password.\n");
         process.exit(1);
       }
     } else if (wantReset && configured) {
       console.log("Reset mode: current password will not be checked.");
     } else if (!configured) {
-      console.log("No password set yet — creating the initial admin password.");
+      console.log("No login set yet — creating the initial username/password.");
+    }
+
+    const currentUsername = state.auth.username || "admin";
+    let nextUsername = usernameFromFlag;
+    if (nextUsername) {
+      console.log(`Using username from --username / LXC_UPDATER_USERNAME (${nextUsername}).`);
+    } else {
+      nextUsername = await ask(
+        rl,
+        `Username [${currentUsername}]: `,
+      );
+      nextUsername = (nextUsername || currentUsername).trim();
+    }
+    if (!nextUsername) {
+      stderr.write("Username is required.\n");
+      process.exit(1);
     }
 
     let next = passwordFromFlag;
@@ -204,6 +229,7 @@ async function main() {
 
     const { hash, salt } = hashPassword(next);
     state.auth = {
+      username: nextUsername,
       passwordHash: hash,
       passwordSalt: salt,
       sessionSecret: randomBytes(32).toString("hex"),
@@ -217,7 +243,7 @@ async function main() {
       { encoding: "utf8" },
     );
     console.log();
-    console.log("Password saved. Existing browser sessions were signed out.");
+    console.log("Login saved. Existing browser sessions were signed out.");
     if (restart.status === 0) {
       console.log("Restarted lxc-updater.service.");
     } else {
@@ -225,7 +251,7 @@ async function main() {
         "Could not restart lxc-updater automatically — run: systemctl restart lxc-updater",
       );
     }
-    console.log("Open the web UI and sign in with the new password.");
+    console.log(`Sign in with username "${nextUsername}".`);
   } finally {
     rl.close();
   }

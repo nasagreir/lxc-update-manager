@@ -162,8 +162,10 @@ export interface AppSettings {
   communityScriptAnswers: string;
 }
 
-/** UI login password — raw secret is never persisted. */
+/** UI login credentials — raw password is never persisted. */
 export interface AuthState {
+  /** Login username (default admin). */
+  username: string;
   /** scrypt hex digest of the password. */
   passwordHash: string | null;
   /** Hex salt used with scrypt. */

@@ -20,6 +20,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export const DEFAULT_AUTH: AuthState = {
+  username: "admin",
   passwordHash: null,
   passwordSalt: null,
   sessionSecret: null,

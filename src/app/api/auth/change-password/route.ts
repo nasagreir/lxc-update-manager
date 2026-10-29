@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
-  changePassword,
+  MAX_USERNAME_LENGTH,
   MIN_PASSWORD_LENGTH,
-} from "@/lib/auth/password";
+  MIN_USERNAME_LENGTH,
+} from "@/lib/auth/constants";
+import { changeCredentials } from "@/lib/auth/password";
 import { requireSession } from "@/lib/auth/require-session";
 import {
   attachSessionCookie,
@@ -11,26 +13,50 @@ import {
 } from "@/lib/auth/session";
 import { readState } from "@/lib/store/db";
 
-const bodySchema = z.object({
-  currentPassword: z.string().min(1).max(200),
-  newPassword: z.string().min(MIN_PASSWORD_LENGTH).max(200),
-  confirmPassword: z.string().min(MIN_PASSWORD_LENGTH).max(200),
-});
+const bodySchema = z
+  .object({
+    currentPassword: z.string().min(1).max(200),
+    username: z
+      .string()
+      .min(MIN_USERNAME_LENGTH)
+      .max(MAX_USERNAME_LENGTH)
+      .optional(),
+    newPassword: z.string().min(MIN_PASSWORD_LENGTH).max(200).optional(),
+    confirmPassword: z.string().max(200).optional(),
+  })
+  .superRefine((val, ctx) => {
+    if (val.newPassword != null && val.newPassword !== "") {
+      if (val.newPassword !== (val.confirmPassword ?? "")) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Passwords do not match",
+          path: ["confirmPassword"],
+        });
+      }
+    }
+    if (
+      (val.username == null || val.username.trim() === "") &&
+      (val.newPassword == null || val.newPassword === "")
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Provide a new username and/or a new password",
+      });
+    }
+  });
 
+/** Update username and/or password (requires current password). */
 export async function POST(request: Request) {
   const auth = await requireSession(request);
   if (!auth.ok) return auth.response;
 
   try {
     const parsed = bodySchema.parse(await request.json());
-    if (parsed.newPassword !== parsed.confirmPassword) {
-      return NextResponse.json(
-        { error: "Passwords do not match" },
-        { status: 400 },
-      );
-    }
-
-    await changePassword(parsed.currentPassword, parsed.newPassword);
+    await changeCredentials({
+      currentPassword: parsed.currentPassword,
+      username: parsed.username,
+      newPassword: parsed.newPassword,
+    });
     const state = await readState();
     if (!state.auth.sessionSecret) {
       return NextResponse.json(
@@ -40,7 +66,10 @@ export async function POST(request: Request) {
     }
 
     const token = createSessionToken(state.auth.sessionSecret);
-    const response = NextResponse.json({ ok: true });
+    const response = NextResponse.json({
+      ok: true,
+      username: state.auth.username,
+    });
     return attachSessionCookie(response, token, request);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

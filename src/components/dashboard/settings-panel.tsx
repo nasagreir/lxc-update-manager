@@ -44,6 +44,7 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [username, setUsername] = useState("admin");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -54,9 +55,18 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
   useEffect(() => {
     void (async () => {
       try {
-        const res = await fetch("/api/settings");
-        const data = await res.json();
+        const [settingsRes, statusRes] = await Promise.all([
+          fetch("/api/settings"),
+          fetch("/api/auth/status"),
+        ]);
+        const data = await settingsRes.json();
         setForm({ ...empty, ...data.settings });
+        if (statusRes.ok) {
+          const status = await statusRes.json();
+          if (typeof status.username === "string" && status.username) {
+            setUsername(status.username);
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -91,26 +101,35 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
     }
   }
 
-  async function savePassword() {
+  async function saveLogin() {
     setPasswordSaving(true);
     setPasswordMessage(null);
     setPasswordError(null);
     try {
+      const body: Record<string, string> = {
+        currentPassword,
+        username: username.trim(),
+      };
+      if (newPassword) {
+        body.newPassword = newPassword;
+        body.confirmPassword = confirmPassword;
+      }
       const res = await fetch("/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          currentPassword,
-          newPassword,
-          confirmPassword,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not change password");
+      if (!res.ok) throw new Error(data.error || "Could not update login");
+      if (typeof data.username === "string") setUsername(data.username);
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setPasswordMessage("Password updated.");
+      setPasswordMessage(
+        newPassword
+          ? "Username and password updated."
+          : "Username updated.",
+      );
     } catch (err) {
       setPasswordError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -133,10 +152,11 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
         <div>
           <h3 className="flex items-center gap-2 font-semibold">
             <KeyRound className="size-4 text-primary" />
-            Web UI password
+            Web UI login
           </h3>
           <p className="text-sm text-muted-foreground">
-            Change the login password. If you forget it, run{" "}
+            Change the username and/or password used to sign in. Leave “New
+            password” blank to keep the current password. If you forget it, run{" "}
             <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">
               lxc-updater-passwd --reset
             </code>{" "}
@@ -144,6 +164,16 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
           </p>
         </div>
         <div className="grid gap-3">
+          <div className="space-y-2">
+            <Label htmlFor="ui-username">Username</Label>
+            <Input
+              id="ui-username"
+              type="text"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="current-password">Current password</Label>
             <Input
@@ -155,7 +185,7 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="new-password">New password</Label>
+            <Label htmlFor="new-password">New password (optional)</Label>
             <Input
               id="new-password"
               type="password"
@@ -174,6 +204,7 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
               minLength={MIN_PASSWORD_LENGTH}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={!newPassword}
             />
           </div>
         </div>
@@ -188,11 +219,13 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
         <Button
           type="button"
           variant="secondary"
-          onClick={() => void savePassword()}
+          onClick={() => void saveLogin()}
           disabled={
             passwordSaving ||
             !currentPassword ||
-            newPassword.length < MIN_PASSWORD_LENGTH
+            !username.trim() ||
+            (newPassword.length > 0 &&
+              newPassword.length < MIN_PASSWORD_LENGTH)
           }
         >
           {passwordSaving ? (
@@ -200,7 +233,7 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
           ) : (
             <KeyRound className="size-4" />
           )}
-          Update password
+          Save login
         </Button>
       </section>
 

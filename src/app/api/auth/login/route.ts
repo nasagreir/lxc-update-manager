@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { isPasswordConfigured, verifyPassword } from "@/lib/auth/password";
+import { DEFAULT_USERNAME } from "@/lib/auth/constants";
+import {
+  isPasswordConfigured,
+  verifyPassword,
+  verifyUsername,
+} from "@/lib/auth/password";
 import {
   attachSessionCookie,
   createSessionToken,
@@ -8,6 +13,7 @@ import {
 import { readState } from "@/lib/store/db";
 
 const bodySchema = z.object({
+  username: z.string().min(1).max(64).default(DEFAULT_USERNAME),
   password: z.string().min(1).max(200),
 });
 
@@ -16,7 +22,7 @@ export async function POST(request: Request) {
     if (!(await isPasswordConfigured())) {
       return NextResponse.json(
         {
-          error: "Password not set yet",
+          error: "Login not set yet",
           code: "SETUP_REQUIRED",
         },
         { status: 409 },
@@ -25,15 +31,20 @@ export async function POST(request: Request) {
 
     const parsed = bodySchema.parse(await request.json());
     const state = await readState();
-    if (!verifyPassword(parsed.password, state.auth) || !state.auth.sessionSecret) {
+    const userOk = verifyUsername(parsed.username, state.auth);
+    const passOk = verifyPassword(parsed.password, state.auth);
+    if (!userOk || !passOk || !state.auth.sessionSecret) {
       return NextResponse.json(
-        { error: "Incorrect password" },
+        { error: "Incorrect username or password" },
         { status: 401 },
       );
     }
 
     const token = createSessionToken(state.auth.sessionSecret);
-    const response = NextResponse.json({ ok: true });
+    const response = NextResponse.json({
+      ok: true,
+      username: state.auth.username,
+    });
     return attachSessionCookie(response, token, request);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

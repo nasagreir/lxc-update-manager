@@ -366,6 +366,7 @@ state = {
     "communityScriptAnswers": "y\ny\ny\ny\ny\ny\ny\ny\n",
   },
   "auth": {
+    "username": "admin",
     "passwordHash": None,
     "passwordSalt": None,
     "sessionSecret": None,

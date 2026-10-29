@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import {
-  isPasswordConfigured,
+  DEFAULT_USERNAME,
+  MAX_USERNAME_LENGTH,
   MIN_PASSWORD_LENGTH,
-  setPassword,
+  MIN_USERNAME_LENGTH,
+} from "@/lib/auth/constants";
+import {
+  isPasswordConfigured,
+  setCredentials,
 } from "@/lib/auth/password";
 import {
   attachSessionCookie,
@@ -12,16 +17,21 @@ import {
 import { readState } from "@/lib/store/db";
 
 const bodySchema = z.object({
+  username: z
+    .string()
+    .min(MIN_USERNAME_LENGTH)
+    .max(MAX_USERNAME_LENGTH)
+    .default(DEFAULT_USERNAME),
   password: z.string().min(MIN_PASSWORD_LENGTH).max(200),
   confirmPassword: z.string().min(MIN_PASSWORD_LENGTH).max(200),
 });
 
-/** First-run only: set the initial UI password and create a session. */
+/** First-run only: set the initial UI username/password and create a session. */
 export async function POST(request: Request) {
   try {
     if (await isPasswordConfigured()) {
       return NextResponse.json(
-        { error: "Password already configured. Use login instead." },
+        { error: "Login already configured. Use sign-in instead." },
         { status: 409 },
       );
     }
@@ -34,7 +44,10 @@ export async function POST(request: Request) {
       );
     }
 
-    await setPassword(parsed.password);
+    await setCredentials({
+      username: parsed.username,
+      password: parsed.password,
+    });
     const state = await readState();
     if (!state.auth.sessionSecret) {
       return NextResponse.json(
@@ -44,7 +57,11 @@ export async function POST(request: Request) {
     }
 
     const token = createSessionToken(state.auth.sessionSecret);
-    const response = NextResponse.json({ ok: true, setupRequired: false });
+    const response = NextResponse.json({
+      ok: true,
+      setupRequired: false,
+      username: state.auth.username,
+    });
     return attachSessionCookie(response, token, request);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

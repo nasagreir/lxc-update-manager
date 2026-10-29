@@ -38,6 +38,9 @@ function mergeState(raw: Partial<AppState> | null): AppState {
     settings.nodeSshHosts = "";
   }
   const auth = { ...DEFAULT_AUTH, ...(raw?.auth ?? {}) };
+  if (!auth.username?.trim()) {
+    auth.username = DEFAULT_AUTH.username;
+  }
   const automations = (raw?.automations ?? []).map((a) => ({
     ...a,
     checkBeforeRun: a.checkBeforeRun ?? false,

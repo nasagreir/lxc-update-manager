@@ -7,10 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { MIN_PASSWORD_LENGTH } from "@/lib/auth/constants";
+import {
+  DEFAULT_USERNAME,
+  MIN_PASSWORD_LENGTH,
+} from "@/lib/auth/constants";
 
-export function LoginScreen({ setupRequired }: { setupRequired: boolean }) {
+export function LoginScreen({
+  setupRequired,
+  defaultUsername = DEFAULT_USERNAME,
+}: {
+  setupRequired: boolean;
+  defaultUsername?: string;
+}) {
   const router = useRouter();
+  const [username, setUsername] = useState(defaultUsername);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,6 +32,9 @@ export function LoginScreen({ setupRequired }: { setupRequired: boolean }) {
     setSubmitting(true);
     try {
       if (setupRequired) {
+        if (!username.trim()) {
+          throw new Error("Username is required");
+        }
         if (password.length < MIN_PASSWORD_LENGTH) {
           throw new Error(
             `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
@@ -33,15 +46,22 @@ export function LoginScreen({ setupRequired }: { setupRequired: boolean }) {
         const res = await fetch("/api/auth/setup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password, confirmPassword }),
+          body: JSON.stringify({
+            username: username.trim(),
+            password,
+            confirmPassword,
+          }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || "Could not set password");
+        if (!res.ok) throw new Error(data.error || "Could not create login");
       } else {
         const res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ password }),
+          body: JSON.stringify({
+            username: username.trim(),
+            password,
+          }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Login failed");
@@ -75,7 +95,7 @@ export function LoginScreen({ setupRequired }: { setupRequired: boolean }) {
             </h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {setupRequired
-                ? "Create an admin password to protect the web UI."
+                ? "Create a username and password to protect the web UI."
                 : "Sign in to manage container and host updates."}
             </p>
           </div>
@@ -86,13 +106,26 @@ export function LoginScreen({ setupRequired }: { setupRequired: boolean }) {
           >
             <div className="mb-5 flex items-center gap-2 text-sm font-medium text-foreground">
               <LockKeyhole className="size-4 text-primary" />
-              {setupRequired ? "Set password" : "Sign in"}
+              {setupRequired ? "Create login" : "Sign in"}
             </div>
 
             <div className="space-y-4">
               <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  autoComplete="username"
+                  autoFocus
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="password">
-                  {setupRequired ? "New password" : "Password"}
+                  {setupRequired ? "Password" : "Password"}
                 </Label>
                 <Input
                   id="password"
@@ -100,7 +133,6 @@ export function LoginScreen({ setupRequired }: { setupRequired: boolean }) {
                   autoComplete={
                     setupRequired ? "new-password" : "current-password"
                   }
-                  autoFocus
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -136,7 +168,7 @@ export function LoginScreen({ setupRequired }: { setupRequired: boolean }) {
                     {setupRequired ? "Saving…" : "Signing in…"}
                   </>
                 ) : setupRequired ? (
-                  "Create password"
+                  "Create login"
                 ) : (
                   "Sign in"
                 )}

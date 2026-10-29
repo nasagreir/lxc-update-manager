@@ -81,12 +81,12 @@ This repo also ships the usual pair for upstream-style installs:
 
 ## Login & password recovery
 
-The first browser visit asks you to create an admin password. Later visits require sign-in. Dashboard APIs use an HTTP-only session cookie; `/api/v1/*` API keys are unchanged.
+The first browser visit asks you to create a username and password. Later visits require sign-in. Change either under **Settings → Web UI login**. Dashboard APIs use an HTTP-only session cookie; `/api/v1/*` API keys are unchanged.
 
 | Action | How |
 | --- | --- |
-| First-time setup | Open the UI and create a password |
-| Change password | Settings → Web UI password, or `lxc-updater-passwd` in the CT |
+| First-time setup | Open the UI and create a username + password |
+| Change username/password | Settings → Web UI login, or `lxc-updater-passwd` in the CT |
 | Forgot password | `pct enter <CTID>` then `lxc-updater-passwd --reset` |
 
 ```bash

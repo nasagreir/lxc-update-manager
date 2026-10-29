@@ -219,12 +219,19 @@ EOF
 # ---------------------------------------------------------------------------
 msg "Installing npm packages and building production bundle"
 cd "$APP_DIR"
+# Turbopack panics if data/ is a symlink that leaves the app tree (e.g. to
+# /opt/lxc-updater-data). Build against a real directory, then re-link.
+if [[ -L "$APP_DIR/data" ]]; then
+  rm -f "$APP_DIR/data"
+fi
+mkdir -p "$APP_DIR/data"
 # Full install so Next.js can compile (typescript / tailwind are needed at build)
 npm install
 npm run build
 ok "Built LXC Updater"
 
-if [[ -f "$APP_DIR/data/state.json" && ! -f "$DATA_DIR/state.json" ]]; then
+mkdir -p "$DATA_DIR"
+if [[ -f "$APP_DIR/data/state.json" && ! -L "$APP_DIR/data" && ! -f "$DATA_DIR/state.json" ]]; then
   mv "$APP_DIR/data/state.json" "$DATA_DIR/"
 fi
 rm -rf "$APP_DIR/data"
@@ -387,10 +394,19 @@ else
 fi
 
 cd "\$APP_DIR"
+# Turbopack panics if data/ is a symlink outside the app tree. Replace it with
+# a real directory for the build, then restore the persistent data link.
+if [[ -L "\$APP_DIR/data" ]]; then
+  rm -f "\$APP_DIR/data"
+fi
+mkdir -p "\$APP_DIR/data"
 npm install
 npm run build
 
 mkdir -p "\$DATA_DIR"
+if [[ -f "\$APP_DIR/data/state.json" && ! -L "\$APP_DIR/data" && ! -f "\$DATA_DIR/state.json" ]]; then
+  mv "\$APP_DIR/data/state.json" "\$DATA_DIR/"
+fi
 rm -rf "\$APP_DIR/data"
 ln -sfn "\$DATA_DIR" "\$APP_DIR/data"
 

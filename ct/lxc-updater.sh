@@ -68,6 +68,11 @@ function update_script() {
 
   msg_info "Building ${APP}"
   cd /opt/lxc-updater
+  # Turbopack cannot build while data/ symlinks outside the app tree.
+  if [[ -L /opt/lxc-updater/data ]]; then
+    rm -f /opt/lxc-updater/data
+  fi
+  mkdir -p /opt/lxc-updater/data
   $STD npm install
   $STD npm run build
   mkdir -p /opt/lxc-updater-data

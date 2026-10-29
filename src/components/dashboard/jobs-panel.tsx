@@ -22,10 +22,10 @@ export function JobsPanel({
   }
 
   return (
-    <div className="animate-fade-up overflow-x-auto rounded-lg border border-border/80 bg-white/75 shadow-sm backdrop-blur-sm">
+    <div className="animate-fade-up overflow-x-auto rounded-lg border border-border/80 bg-card/80 shadow-sm backdrop-blur-sm">
       <table className="w-full min-w-[700px] text-sm">
         <thead>
-          <tr className="border-b bg-slate-50/80 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="px-3 py-3 font-medium">When</th>
             <th className="px-3 py-3 font-medium">Target</th>
             <th className="px-3 py-3 font-medium">Method</th>
@@ -38,7 +38,7 @@ export function JobsPanel({
           {jobs.map((job) => (
             <tr
               key={job.id}
-              className="border-b border-border/60 hover:bg-teal-50/40"
+              className="border-b border-border/60 hover:bg-accent/40"
             >
               <td className="px-3 py-3 text-muted-foreground">
                 {formatRelative(job.startedAt ?? job.finishedAt)}
@@ -48,7 +48,7 @@ export function JobsPanel({
                   <>
                     <Badge
                       variant="outline"
-                      className="mr-1.5 border-teal-600/30 bg-teal-50 text-teal-900"
+                      className="mr-1.5 border-primary/30 bg-primary/15 text-primary"
                     >
                       Host
                     </Badge>

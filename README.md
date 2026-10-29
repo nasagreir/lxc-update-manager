@@ -70,6 +70,7 @@ This repo also ships the usual pair for upstream-style installs:
 - Detects how each CT updates: community `update` command, `apt`, or `apk`
 - **Check for updates** — pending apt/apk packages, plus git remotes behind upstream for helper-script CTs; rows needing work show a red **Update available** button
 - **Nodes** — separate tab for Proxmox **host** system updates (apt on each node via SSH); each cluster node is listed distinctly with its own check/update status
+- **Appearance** — Light, Dark, and Ultra dark (near-black) themes; preference stored in the browser
 - Runs updates from the browser (with live job logs)
 - **Automations** — cron schedules that can re-check first and only update outdated CTs
 - **API keys** — Bearer auth for Grok / other bots via `/api/v1/*`

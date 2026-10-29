@@ -95,7 +95,7 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
 
   return (
     <div className="animate-fade-up mx-auto max-w-2xl space-y-8">
-      <section className="space-y-4 rounded-lg border border-border/80 bg-white/75 p-5 shadow-sm">
+      <section className="space-y-4 rounded-lg border border-border/80 bg-card/80 p-5 shadow-sm">
         <div>
           <h3 className="font-semibold">Mode</h3>
           <p className="text-sm text-muted-foreground">
@@ -114,7 +114,7 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-lg border border-border/80 bg-white/75 p-5 shadow-sm">
+      <section className="space-y-4 rounded-lg border border-border/80 bg-card/80 p-5 shadow-sm">
         <div>
           <h3 className="font-semibold">Proxmox API</h3>
           <p className="text-sm text-muted-foreground">
@@ -191,7 +191,7 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
         </div>
       </section>
 
-      <section className="space-y-4 rounded-lg border border-border/80 bg-white/75 p-5 shadow-sm">
+      <section className="space-y-4 rounded-lg border border-border/80 bg-card/80 p-5 shadow-sm">
         <div>
           <h3 className="font-semibold">Command execution</h3>
           <p className="text-sm text-muted-foreground">
@@ -302,7 +302,7 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
       </section>
 
       {message && (
-        <p className="text-sm text-emerald-800">{message}</p>
+        <p className="text-sm text-emerald-800 dark:text-emerald-400">{message}</p>
       )}
       {error && <p className="text-sm text-red-700">{error}</p>}
 

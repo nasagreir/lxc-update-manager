@@ -81,6 +81,88 @@
   --sidebar-accent-foreground: oklch(0.28 0.05 210);
   --sidebar-border: oklch(0.88 0.02 210);
   --sidebar-ring: oklch(0.55 0.09 210);
+  --surface-glow-a: oklch(0.92 0.04 195 / 0.7);
+  --surface-glow-b: oklch(0.94 0.03 230 / 0.5);
+  --surface-base-top: oklch(0.99 0.006 210);
+  --surface-base-bottom: oklch(0.97 0.01 210);
+}
+
+.dark {
+  --background: oklch(0.18 0.02 230);
+  --foreground: oklch(0.93 0.01 210);
+  --card: oklch(0.22 0.02 230);
+  --card-foreground: oklch(0.93 0.01 210);
+  --popover: oklch(0.2 0.02 230);
+  --popover-foreground: oklch(0.93 0.01 210);
+  --primary: oklch(0.72 0.09 195);
+  --primary-foreground: oklch(0.16 0.02 230);
+  --secondary: oklch(0.26 0.02 230);
+  --secondary-foreground: oklch(0.92 0.01 210);
+  --muted: oklch(0.25 0.018 230);
+  --muted-foreground: oklch(0.72 0.02 220);
+  --accent: oklch(0.28 0.035 200);
+  --accent-foreground: oklch(0.92 0.02 195);
+  --destructive: oklch(0.65 0.18 25);
+  --border: oklch(0.32 0.02 230);
+  --input: oklch(0.3 0.02 230);
+  --ring: oklch(0.65 0.08 195);
+  --chart-1: oklch(0.7 0.1 195);
+  --chart-2: oklch(0.68 0.09 160);
+  --chart-3: oklch(0.62 0.08 250);
+  --chart-4: oklch(0.72 0.08 90);
+  --chart-5: oklch(0.68 0.1 30);
+  --sidebar: oklch(0.16 0.02 230);
+  --sidebar-foreground: oklch(0.93 0.01 210);
+  --sidebar-primary: oklch(0.72 0.09 195);
+  --sidebar-primary-foreground: oklch(0.16 0.02 230);
+  --sidebar-accent: oklch(0.28 0.035 200);
+  --sidebar-accent-foreground: oklch(0.92 0.02 195);
+  --sidebar-border: oklch(0.32 0.02 230);
+  --sidebar-ring: oklch(0.65 0.08 195);
+  --surface-glow-a: oklch(0.32 0.05 195 / 0.35);
+  --surface-glow-b: oklch(0.28 0.04 250 / 0.3);
+  --surface-base-top: oklch(0.17 0.02 230);
+  --surface-base-bottom: oklch(0.14 0.018 235);
+}
+
+/* Near-black OLED-friendly theme; also carries .dark for utility variants. */
+.dark.ultra-dark,
+.ultra-dark {
+  --background: oklch(0.05 0.005 240);
+  --foreground: oklch(0.9 0.008 210);
+  --card: oklch(0.09 0.008 240);
+  --card-foreground: oklch(0.9 0.008 210);
+  --popover: oklch(0.08 0.008 240);
+  --popover-foreground: oklch(0.9 0.008 210);
+  --primary: oklch(0.7 0.08 195);
+  --primary-foreground: oklch(0.08 0.01 240);
+  --secondary: oklch(0.14 0.01 240);
+  --secondary-foreground: oklch(0.88 0.01 210);
+  --muted: oklch(0.13 0.01 240);
+  --muted-foreground: oklch(0.62 0.015 220);
+  --accent: oklch(0.16 0.02 200);
+  --accent-foreground: oklch(0.9 0.015 195);
+  --destructive: oklch(0.6 0.17 25);
+  --border: oklch(0.18 0.012 240);
+  --input: oklch(0.16 0.01 240);
+  --ring: oklch(0.55 0.07 195);
+  --chart-1: oklch(0.65 0.09 195);
+  --chart-2: oklch(0.62 0.08 160);
+  --chart-3: oklch(0.58 0.07 250);
+  --chart-4: oklch(0.66 0.07 90);
+  --chart-5: oklch(0.62 0.09 30);
+  --sidebar: oklch(0.04 0.005 240);
+  --sidebar-foreground: oklch(0.9 0.008 210);
+  --sidebar-primary: oklch(0.7 0.08 195);
+  --sidebar-primary-foreground: oklch(0.08 0.01 240);
+  --sidebar-accent: oklch(0.16 0.02 200);
+  --sidebar-accent-foreground: oklch(0.9 0.015 195);
+  --sidebar-border: oklch(0.18 0.012 240);
+  --sidebar-ring: oklch(0.55 0.07 195);
+  --surface-glow-a: oklch(0.18 0.03 195 / 0.22);
+  --surface-glow-b: oklch(0.14 0.02 260 / 0.18);
+  --surface-base-top: oklch(0.05 0.005 240);
+  --surface-base-bottom: oklch(0.02 0.004 245);
 }
 
 @layer base {
@@ -90,13 +172,23 @@
   body {
     @apply bg-background text-foreground;
     background-image:
-      radial-gradient(ellipse 120% 80% at 0% -20%, oklch(0.92 0.04 195 / 0.7), transparent 50%),
-      radial-gradient(ellipse 80% 60% at 100% 0%, oklch(0.94 0.03 230 / 0.5), transparent 45%),
-      linear-gradient(180deg, oklch(0.99 0.006 210), oklch(0.97 0.01 210));
+      radial-gradient(ellipse 120% 80% at 0% -20%, var(--surface-glow-a), transparent 50%),
+      radial-gradient(ellipse 80% 60% at 100% 0%, var(--surface-glow-b), transparent 45%),
+      linear-gradient(180deg, var(--surface-base-top), var(--surface-base-bottom));
     background-attachment: fixed;
   }
   html {
     @apply font-sans;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  html.ultra-dark body {
+    /* Flatten atmosphere for true black / OLED feel */
+    background-image:
+      radial-gradient(ellipse 90% 50% at 10% -10%, var(--surface-glow-a), transparent 55%),
+      linear-gradient(180deg, var(--surface-base-top), var(--surface-base-bottom));
   }
 }
 

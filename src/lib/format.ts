@@ -34,16 +34,16 @@ export function statusTone(
     case "running":
     case "succeeded":
     case "online":
-      return "bg-emerald-500/15 text-emerald-800 border-emerald-500/30";
+      return "bg-emerald-500/15 text-emerald-800 border-emerald-500/30 dark:text-emerald-300";
     case "queued":
-      return "bg-sky-500/15 text-sky-800 border-sky-500/30";
+      return "bg-sky-500/15 text-sky-800 border-sky-500/30 dark:text-sky-300";
     case "failed":
     case "offline":
-      return "bg-red-500/15 text-red-800 border-red-500/30";
+      return "bg-red-500/15 text-red-800 border-red-500/30 dark:text-red-300";
     case "stopped":
     case "cancelled":
-      return "bg-slate-500/10 text-slate-600 border-slate-400/30";
+      return "bg-slate-500/10 text-slate-600 border-slate-400/30 dark:text-slate-300";
     default:
-      return "bg-amber-500/15 text-amber-900 border-amber-500/30";
+      return "bg-amber-500/15 text-amber-900 border-amber-500/30 dark:text-amber-200";
   }
 }

@@ -18,6 +18,7 @@ import { AutomationsPanel } from "@/components/dashboard/automations-panel";
 import { ApiKeysPanel } from "@/components/dashboard/api-keys-panel";
 import { SettingsPanel } from "@/components/dashboard/settings-panel";
 import { JobLogDialog } from "@/components/dashboard/job-log-dialog";
+import { ThemeToggle } from "@/components/theme-toggle";
 import type {
   Automation,
   LxcContainer,
@@ -214,23 +215,24 @@ export function AppShell() {
       <header className="mb-8 animate-fade-up">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="font-mono text-xs tracking-[0.2em] text-teal-800/80 uppercase">
+            <p className="font-mono text-xs tracking-[0.2em] text-primary/80 uppercase">
               Proxmox · LXC
             </p>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
               LXC Updater
             </h1>
-            <p className="mt-2 max-w-xl text-sm text-slate-600 sm:text-base">
+            <p className="mt-2 max-w-xl text-sm text-muted-foreground sm:text-base">
               Check LXCs across your cluster, run community helper-script{" "}
               <span className="font-mono text-[0.9em]">update</span> from the
               browser, and schedule unattended upgrades.
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <ThemeToggle />
             {mockMode && (
               <Badge
                 variant="outline"
-                className="border-amber-400/60 bg-amber-50 text-amber-900"
+                className="border-amber-500/50 bg-amber-500/15 text-amber-900 dark:text-amber-200"
               >
                 Mock mode
               </Badge>
@@ -255,7 +257,7 @@ export function AppShell() {
               </Badge>
             )}
             {activeJobs > 0 && (
-              <Badge className="bg-teal-700 text-white hover:bg-teal-700">
+              <Badge className="bg-teal-700 text-white hover:bg-teal-700 dark:bg-teal-600">
                 {activeJobs} job{activeJobs === 1 ? "" : "s"} active
               </Badge>
             )}
@@ -264,7 +266,7 @@ export function AppShell() {
       </header>
 
       <Tabs value={tab} onValueChange={setTab} className="flex flex-1 flex-col">
-        <TabsList className="mb-6 h-auto w-full flex-wrap justify-start gap-1 bg-white/60 p-1 shadow-sm">
+        <TabsList className="mb-6 h-auto w-full flex-wrap justify-start gap-1 bg-card/70 p-1 shadow-sm">
           <TabsTrigger value="containers" className="gap-1.5">
             <Boxes className="size-4" />
             Containers

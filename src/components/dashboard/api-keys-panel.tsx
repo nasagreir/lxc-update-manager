@@ -81,7 +81,7 @@ export function ApiKeysPanel() {
 
   return (
     <div className="animate-fade-up mx-auto max-w-2xl space-y-6">
-      <section className="space-y-3 rounded-lg border border-border/80 bg-white/75 p-5 shadow-sm">
+      <section className="space-y-3 rounded-lg border border-border/80 bg-card/80 p-5 shadow-sm">
         <div>
           <h3 className="font-semibold">API keys for bots</h3>
           <p className="text-sm text-muted-foreground">
@@ -108,12 +108,12 @@ export function ApiKeysPanel() {
         </div>
         {error && <p className="text-sm text-red-700">{error}</p>}
         {secret && (
-          <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3">
-            <p className="text-sm font-medium text-amber-950">
+          <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/15 p-3">
+            <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
               Copy this key now — it won&apos;t be shown again.
             </p>
             <div className="flex items-center gap-2">
-              <code className="flex-1 break-all rounded bg-white/80 px-2 py-1 font-mono text-xs">
+              <code className="flex-1 break-all rounded bg-card/80 px-2 py-1 font-mono text-xs">
                 {secret}
               </code>
               <Button size="sm" variant="secondary" onClick={() => void copySecret()}>
@@ -135,7 +135,7 @@ export function ApiKeysPanel() {
             {keys.map((k) => (
               <li
                 key={k.id}
-                className="flex flex-col gap-2 rounded-lg border bg-white/75 p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-2 rounded-lg border bg-card/80 p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="space-y-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -165,7 +165,7 @@ export function ApiKeysPanel() {
         )}
       </section>
 
-      <section className="rounded-lg border border-border/80 bg-white/75 p-5 text-sm text-muted-foreground shadow-sm">
+      <section className="rounded-lg border border-border/80 bg-card/80 p-5 text-sm text-muted-foreground shadow-sm">
         <p className="font-medium text-foreground">Example (Grok / curl)</p>
         <pre className="mt-2 overflow-x-auto rounded-md bg-slate-950 p-3 font-mono text-[11px] leading-relaxed text-emerald-100/90">
 {`curl -s http://HOST:3847/api/v1/status \\

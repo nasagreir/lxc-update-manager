@@ -145,7 +145,7 @@ export function AutomationsPanel({
       </div>
 
       {automations.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border bg-white/50 py-14 text-center text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border bg-card/50 py-14 text-center text-muted-foreground">
           No automations yet. Create one to auto-update on a schedule.
         </div>
       ) : (
@@ -153,7 +153,7 @@ export function AutomationsPanel({
           {automations.map((a) => (
             <li
               key={a.id}
-              className="flex flex-col gap-3 rounded-lg border border-border/80 bg-white/75 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-lg border border-border/80 bg-card/80 p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -260,7 +260,7 @@ export function AutomationsPanel({
                 onChange={(e) => setStagger(Number(e.target.value))}
               />
             </div>
-            <div className="space-y-3 rounded-md border bg-slate-50/80 p-3">
+            <div className="space-y-3 rounded-md border bg-muted/50 p-3">
               <div className="flex items-center gap-2">
                 <Switch
                   checked={onlyRunning}

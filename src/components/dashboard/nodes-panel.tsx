@@ -113,7 +113,7 @@ export function NodesPanel({
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div className="rounded-md border border-red-500/40 bg-red-500/15 px-3 py-2 text-sm text-red-800 dark:text-red-200">
           {error}
         </div>
       )}
@@ -128,10 +128,10 @@ export function NodesPanel({
           No Proxmox nodes found. Check Settings → include nodes / API token.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border/80 bg-white/75 shadow-sm backdrop-blur-sm">
+        <div className="overflow-x-auto rounded-lg border border-border/80 bg-card/80 shadow-sm backdrop-blur-sm">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="border-b bg-slate-50/80 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="w-10 px-3 py-3">
                   <Checkbox
                     checked={allSelected}
@@ -150,7 +150,7 @@ export function NodesPanel({
               {sorted.map((node) => (
                 <tr
                   key={node.name}
-                  className="border-b border-border/60 hover:bg-teal-50/40"
+                  className="border-b border-border/60 hover:bg-accent/40"
                 >
                   <td className="px-3 py-3">
                     <Checkbox
@@ -161,7 +161,7 @@ export function NodesPanel({
                   </td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2">
-                      <Server className="size-4 text-teal-800" />
+                      <Server className="size-4 text-primary" />
                       <span className="font-semibold tracking-tight">
                         {node.name}
                       </span>
@@ -182,7 +182,7 @@ export function NodesPanel({
                     {formatRelative(node.lastCheckedAt)}
                     {node.updateAvailableDetail &&
                       node.updateAvailable !== null && (
-                        <div className="mt-0.5 max-w-xs text-xs text-slate-500">
+                        <div className="mt-0.5 max-w-xs text-xs text-muted-foreground">
                           {node.updateAvailableDetail}
                         </div>
                       )}
@@ -210,7 +210,7 @@ export function NodesPanel({
                         )}
                       </Button>
                     ) : node.updateAvailable === false ? (
-                      <span className="text-sm font-medium text-emerald-700">
+                      <span className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
                         Up to date
                       </span>
                     ) : (

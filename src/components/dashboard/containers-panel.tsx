@@ -100,11 +100,11 @@ export function ContainersPanel({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name, VMID, node, tag…"
-              className="pl-9 bg-white/70"
+              className="pl-9 bg-card/70"
             />
           </div>
           <Select value={nodeFilter} onValueChange={setNodeFilter}>
-            <SelectTrigger className="w-full bg-white/70 sm:w-44">
+            <SelectTrigger className="w-full bg-card/70 sm:w-44">
               <SelectValue placeholder="All nodes" />
             </SelectTrigger>
             <SelectContent>
@@ -166,7 +166,7 @@ export function ContainersPanel({
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+        <div className="rounded-md border border-red-500/40 bg-red-500/15 px-3 py-2 text-sm text-red-800 dark:text-red-200">
           {error}
         </div>
       )}
@@ -182,10 +182,10 @@ export function ContainersPanel({
           on to explore the UI.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border/80 bg-white/75 shadow-sm backdrop-blur-sm">
+        <div className="overflow-x-auto rounded-lg border border-border/80 bg-card/80 shadow-sm backdrop-blur-sm">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
-              <tr className="border-b bg-slate-50/80 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="w-10 px-3 py-3">
                   <Checkbox
                     checked={allFilteredSelected}
@@ -207,8 +207,8 @@ export function ContainersPanel({
                 <tr
                   key={`${c.node}-${c.vmid}`}
                   className={cn(
-                    "border-b border-border/60 transition-colors hover:bg-teal-50/40",
-                    c.updateAvailable && "bg-red-50/40",
+                    "border-b border-border/60 transition-colors hover:bg-accent/40",
+                    c.updateAvailable && "bg-red-500/10",
                   )}
                   style={{ animationDelay: `${i * 30}ms` }}
                 >
@@ -284,7 +284,7 @@ export function ContainersPanel({
                       </Button>
                     ) : c.updateAvailable === false ? (
                       <span
-                        className="text-xs font-medium text-emerald-700"
+                        className="text-xs font-medium text-emerald-700 dark:text-emerald-400"
                         title={c.updateAvailableDetail ?? "Up to date"}
                       >
                         Up to date

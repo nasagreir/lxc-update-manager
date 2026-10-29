@@ -152,11 +152,11 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
         <div>
           <h3 className="flex items-center gap-2 font-semibold">
             <KeyRound className="size-4 text-primary" />
-            Web UI login
+            Username &amp; password
           </h3>
           <p className="text-sm text-muted-foreground">
-            Change the username and/or password used to sign in. Leave “New
-            password” blank to keep the current password. If you forget it, run{" "}
+            Set or change the web UI username and password. Leave “New password”
+            blank to keep the current password. If you forget it, run{" "}
             <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.85em]">
               lxc-updater-passwd --reset
             </code>{" "}

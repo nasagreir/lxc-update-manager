@@ -376,7 +376,7 @@ export function AppShell() {
             "bg-card/70 shadow-sm",
             sideRail
               ? "sticky top-[max(0.5rem,env(safe-area-inset-top))] order-2 h-auto w-14 shrink-0 flex-col justify-start gap-1 self-start p-1 sm:w-[4.5rem]"
-              : "mb-6 h-auto w-full flex-wrap justify-start gap-1 p-1",
+              : "duo-tabstrip mb-4 gap-1 p-1",
           )}
         >
           {NAV_ITEMS.map(({ value, label, icon: Icon }) => (
@@ -384,9 +384,10 @@ export function AppShell() {
               key={value}
               value={value}
               className={cn(
-                "touch-target gap-1.5",
-                sideRail &&
-                  "h-auto w-full flex-col justify-center px-1 py-2 text-[10px] leading-tight whitespace-normal",
+                "gap-1.5",
+                sideRail
+                  ? "touch-target h-auto w-full flex-col justify-center px-1 py-2 text-[10px] leading-tight whitespace-normal"
+                  : "px-3 py-2",
               )}
               title={label}
             >

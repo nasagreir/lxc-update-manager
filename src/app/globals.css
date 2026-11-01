@@ -251,3 +251,24 @@
     min-width: 2.75rem;
   }
 }
+
+/*
+ * Folded iPhone Duo (outer display) is narrow. The shared tab list is a
+ * single 2rem row with flex-1 triggers, so labels shrink and overlap.
+ * Force a wrapping strip whose items keep their natural width.
+ */
+.duo-tabstrip {
+  height: auto !important;
+  width: 100% !important;
+  max-width: 100%;
+  flex-wrap: wrap !important;
+  justify-content: flex-start !important;
+  overflow: visible;
+}
+.duo-tabstrip [data-slot="tabs-trigger"] {
+  flex: 0 0 auto !important;
+  height: auto !important;
+  width: auto !important;
+  min-width: 0;
+  white-space: nowrap;
+}

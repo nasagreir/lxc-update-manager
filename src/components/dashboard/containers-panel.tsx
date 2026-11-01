@@ -7,6 +7,7 @@ import {
   Search,
   Loader2,
   Radar,
+  Undo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,8 @@ export function ContainersPanel({
   onCheckUpdates,
   onUpdate,
   updating,
+  onRollback,
+  rollingBackVmid,
 }: {
   containers: LxcContainer[];
   loading: boolean;
@@ -42,6 +45,8 @@ export function ContainersPanel({
   onCheckUpdates: () => void;
   onUpdate: (vmids: number[]) => Promise<void>;
   updating: boolean;
+  onRollback: (vmid: number) => void;
+  rollingBackVmid: number | null;
 }) {
   const { compactWidth } = useDuoLayout();
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -240,6 +245,22 @@ export function ContainersPanel({
                       ))}
                     </div>
                   )}
+                  {c.lastSnapshotName && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full touch-target"
+                      disabled={rollingBackVmid === c.vmid || updating}
+                      onClick={() => onRollback(c.vmid)}
+                    >
+                      {rollingBackVmid === c.vmid ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <Undo2 />
+                      )}
+                      Roll back snapshot
+                    </Button>
+                  )}
                   {c.updateAvailable ? (
                     <Button
                       size="sm"
@@ -352,6 +373,23 @@ export function ContainersPanel({
                     )}
                   </td>
                   <td className="px-3 py-3 text-right">
+                    <div className="flex flex-col items-end gap-1.5">
+                    {c.lastSnapshotName && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={rollingBackVmid === c.vmid || updating}
+                        onClick={() => onRollback(c.vmid)}
+                        title={`Roll back to Proxmox snapshot ${c.lastSnapshotName}`}
+                      >
+                        {rollingBackVmid === c.vmid ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <Undo2 />
+                        )}
+                        Roll back
+                      </Button>
+                    )}
                     {c.updateAvailable ? (
                       <Button
                         size="sm"
@@ -378,6 +416,7 @@ export function ContainersPanel({
                         Not checked
                       </span>
                     )}
+                    </div>
                   </td>
                 </tr>
               ))}

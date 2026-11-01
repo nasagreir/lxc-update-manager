@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   nodeSshHosts: "pve1=192.168.1.10\npve2=192.168.1.11\npve3=192.168.1.12",
   updateTimeoutSeconds: 1800,
   communityScriptAnswers: "y\ny\ny\ny\ny\ny\ny\ny\n",
+  snapshotBeforeUpdate: true,
 };
 
 export const DEFAULT_AUTH: AuthState = {

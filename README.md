@@ -195,6 +195,12 @@ pct exec <vmid> -- bash -lc 'printf "y\ny\n…" | update'
 
 Answers are editable in Settings. Plain Debian/Alpine CTs without `update` fall back to `apt` / `apk` upgrades.
 
+## Proxmox snapshots
+
+Before each guest update, LXC Updater takes a **native Proxmox snapshot** of that LXC (`POST /nodes/…/lxc/{vmid}/snapshot`). If the update exits with an error or times out, the guest is rolled back to that snapshot and started again. The snapshot is kept after a successful update so you can still press **Roll back** on the container if the guest misbehaves.
+
+Turn this off under **Settings → Snapshot before update** when the disk is on storage that cannot snapshot (plain directory storage). The API token needs `VM.Snapshot` and `VM.Snapshot.Rollback`. Snapshots created here are named `lxcu…`; snapshots you made yourself are left alone.
+
 ## Security notes
 
 - Protect the web UI with the login password (or reset it from the CT console if forgotten).

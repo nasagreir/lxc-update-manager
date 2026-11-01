@@ -2,6 +2,11 @@ import { randomUUID } from "crypto";
 import { checkContainerUpdates } from "@/lib/proxmox/check-updates";
 import { listContainers } from "@/lib/proxmox/client";
 import {
+  createPreUpdateSnapshot,
+  preUpdateSnapshotName,
+  rollbackSnapshot,
+} from "@/lib/proxmox/snapshots";
+import {
   buildApkUpdateScript,
   buildAptUpdateScript,
   buildCommunityUpdateScript,
@@ -31,6 +36,8 @@ function emptyMeta(partial?: Partial<ContainerMeta>): ContainerMeta {
     updateAvailableDetail: partial?.updateAvailableDetail ?? null,
     pendingUpdateCount: partial?.pendingUpdateCount ?? 0,
     notes: partial?.notes,
+    lastSnapshotName: partial?.lastSnapshotName ?? null,
+    lastSnapshotAt: partial?.lastSnapshotAt ?? null,
   };
 }
 
@@ -88,6 +95,8 @@ function enrichContainers(
       pendingUpdateCount:
         m?.pendingUpdateCount ?? mockSeed?.pendingUpdateCount ?? 0,
       notes: m?.notes ?? mockSeed?.notes,
+      lastSnapshotName: m?.lastSnapshotName ?? null,
+      lastSnapshotAt: m?.lastSnapshotAt ?? null,
     };
   });
 }
@@ -212,15 +221,31 @@ export async function checkUpdatesForContainers(
   );
 }
 
+type UpdateResult = {
+  ok: boolean;
+  method: UpdateMethod;
+  snapshotName?: string | null;
+  rolledBack?: boolean;
+};
+
 async function simulateMockUpdate(
   jobId: string,
   container: LxcContainer,
-): Promise<{ ok: boolean; method: UpdateMethod }> {
+): Promise<UpdateResult> {
   const method = container.updateMethod;
   await appendJobLog(
     jobId,
     `[mock] Starting update for ${container.name} (${container.vmid}) via ${method}\n`,
   );
+  const settings = (await readState()).settings;
+  let snapshotName: string | null = null;
+  if (settings.snapshotBeforeUpdate) {
+    snapshotName = preUpdateSnapshotName();
+    await appendJobLog(
+      jobId,
+      `[mock] Proxmox snapshot ${snapshotName} created on ${container.node}.\n`,
+    );
+  }
   await sleep(400);
   if (method === "community-script") {
     await appendJobLog(
@@ -234,31 +259,66 @@ async function simulateMockUpdate(
     await appendJobLog(jobId, "  → Applying package and app updates…\n");
     await sleep(700);
     await appendJobLog(jobId, "  ✓ Update completed successfully\n");
-    return { ok: true, method };
+    return { ok: true, method, snapshotName };
   }
   if (method === "apt") {
     await appendJobLog(jobId, "  → apt-get update && dist-upgrade\n");
     await sleep(800);
     await appendJobLog(jobId, "  ✓ 3 packages upgraded\n");
-    return { ok: true, method };
+    return { ok: true, method, snapshotName };
   }
   if (method === "apk") {
     await appendJobLog(jobId, "  → apk update && apk upgrade\n");
     await sleep(500);
     await appendJobLog(jobId, "  ✓ Alpine packages upgraded\n");
-    return { ok: true, method };
+    return { ok: true, method, snapshotName };
   }
   await appendJobLog(
     jobId,
     "  ✗ No known update method for this container\n",
   );
-  return { ok: false, method };
+  if (snapshotName) {
+    await appendJobLog(
+      jobId,
+      `[mock] Rolling back to snapshot ${snapshotName}.\n`,
+    );
+  }
+  return { ok: false, method, snapshotName, rolledBack: Boolean(snapshotName) };
+}
+
+async function rollbackFailedUpdate(
+  jobId: string,
+  container: LxcContainer,
+  snapshotName: string,
+): Promise<boolean> {
+  await appendJobLog(
+    jobId,
+    `Update failed. Rolling back to Proxmox snapshot ${snapshotName}…\n`,
+  );
+  try {
+    const settings = (await readState()).settings;
+    await rollbackSnapshot(
+      settings,
+      container.node,
+      container.vmid,
+      snapshotName,
+    );
+    await appendJobLog(
+      jobId,
+      `Rolled back to ${snapshotName} and started the container.\n`,
+    );
+    return true;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await appendJobLog(jobId, `✗ Rollback failed: ${message}\n`);
+    return false;
+  }
 }
 
 async function runRealUpdate(
   jobId: string,
   container: LxcContainer,
-): Promise<{ ok: boolean; method: UpdateMethod }> {
+): Promise<UpdateResult> {
   const state = await readState();
   let method = container.updateMethod;
 
@@ -275,6 +335,33 @@ async function runRealUpdate(
   if (container.status !== "running") {
     await appendJobLog(jobId, "Container is not running — cannot update.\n");
     return { ok: false, method };
+  }
+
+  let snapshotName: string | null = null;
+  if (state.settings.snapshotBeforeUpdate) {
+    await appendJobLog(
+      jobId,
+      `Creating Proxmox snapshot on ${container.node}…\n`,
+    );
+    try {
+      snapshotName = await createPreUpdateSnapshot(
+        state.settings,
+        container.node,
+        container.vmid,
+        container.name,
+      );
+      await appendJobLog(
+        jobId,
+        `Snapshot ${snapshotName} created. A failed update will roll back to it.\n`,
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await appendJobLog(
+        jobId,
+        `✗ Proxmox snapshot failed: ${message}\nUpdate was not started. The API token needs VM.Snapshot, and the disk must be on snapshot-capable storage (ZFS, LVM-thin, Ceph, or btrfs). Turn off “Snapshot before update” in Settings if this storage cannot snapshot.\n`,
+      );
+      return { ok: false, method };
+    }
   }
 
   let script: string;
@@ -294,31 +381,53 @@ async function runRealUpdate(
     await appendJobLog(jobId, "Running apk upgrade…\n");
   } else {
     await appendJobLog(jobId, "No supported update method.\n");
-    return { ok: false, method };
+    return { ok: false, method, snapshotName };
   }
 
   await appendJobLog(jobId, `Node: ${container.node}\n`);
-  const result = await pctExec(
-    state.settings,
-    container.vmid,
-    ["bash", "-lc", script],
-    undefined,
-    container.node,
-  );
+  let result;
+  try {
+    result = await pctExec(
+      state.settings,
+      container.vmid,
+      ["bash", "-lc", script],
+      undefined,
+      container.node,
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await appendJobLog(jobId, `✗ ${message}\n`);
+    const rolledBack = snapshotName
+      ? await rollbackFailedUpdate(jobId, container, snapshotName)
+      : false;
+    return { ok: false, method, snapshotName, rolledBack };
+  }
 
   if (result.stdout) await appendJobLog(jobId, result.stdout.endsWith("\n") ? result.stdout : `${result.stdout}\n`);
   if (result.stderr) await appendJobLog(jobId, result.stderr.endsWith("\n") ? result.stderr : `${result.stderr}\n`);
 
   if (result.timedOut) {
     await appendJobLog(jobId, "✗ Update timed out.\n");
-    return { ok: false, method };
+    const rolledBack = snapshotName
+      ? await rollbackFailedUpdate(jobId, container, snapshotName)
+      : false;
+    return { ok: false, method, snapshotName, rolledBack };
   }
   if ((result.code ?? 1) !== 0) {
     await appendJobLog(jobId, `✗ Exit code ${result.code}\n`);
-    return { ok: false, method };
+    const rolledBack = snapshotName
+      ? await rollbackFailedUpdate(jobId, container, snapshotName)
+      : false;
+    return { ok: false, method, snapshotName, rolledBack };
   }
   await appendJobLog(jobId, "✓ Update finished.\n");
-  return { ok: true, method };
+  if (snapshotName) {
+    await appendJobLog(
+      jobId,
+      `Snapshot ${snapshotName} was kept. Use Roll back on this container if the guest misbehaves.\n`,
+    );
+  }
+  return { ok: true, method, snapshotName };
 }
 
 export async function enqueueUpdates(opts: {
@@ -419,7 +528,11 @@ async function runJob(jobId: string) {
       status,
       finishedAt,
       updateMethod: result.method,
-      error: result.ok ? undefined : "Update failed — see log",
+      error: result.ok
+        ? undefined
+        : result.rolledBack
+          ? "Update failed. Rolled back to the Proxmox snapshot."
+          : "Update failed — see log",
     });
 
     await updateState((s) => {
@@ -443,6 +556,11 @@ async function runJob(jobId: string) {
               : prev?.updateAvailableDetail ?? null,
             pendingUpdateCount: result.ok ? 0 : prev?.pendingUpdateCount ?? 0,
             notes: prev?.notes ?? container.notes,
+            lastSnapshotName:
+              result.snapshotName ?? prev?.lastSnapshotName ?? null,
+            lastSnapshotAt: result.snapshotName
+              ? finishedAt
+              : prev?.lastSnapshotAt ?? null,
           }),
         },
       };
@@ -468,4 +586,77 @@ export async function getJobs(): Promise<UpdateJob[]> {
 export async function getJob(id: string): Promise<UpdateJob | undefined> {
   const state = await readState();
   return state.jobs.find((j) => j.id === id);
+}
+
+/** Roll a guest back to the Proxmox snapshot taken before its last update. */
+export async function rollbackContainer(vmid: number): Promise<{
+  snapshotName: string;
+  jobId: string;
+}> {
+  const state = await readState();
+  const containers = await getContainers();
+  const container = containers.find((c) => c.vmid === vmid);
+  if (!container) throw new Error("Container not found");
+  const snapshotName = container.lastSnapshotName;
+  if (!snapshotName) {
+    throw new Error("No pre-update snapshot is recorded for this container");
+  }
+  if (runningVmids.has(vmid)) {
+    throw new Error("An update is already running for this container");
+  }
+
+  const job: UpdateJob = {
+    id: randomUUID(),
+    target: "container",
+    vmid,
+    containerName: container.name,
+    node: container.node,
+    status: "running",
+    trigger: "manual",
+    updateMethod: container.updateMethod,
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    log: `Rolling back ${container.name} (${vmid}) to Proxmox snapshot ${snapshotName}…\n`,
+  };
+  await updateState((s) => ({
+    ...s,
+    jobs: [job, ...s.jobs].slice(0, 200),
+  }));
+
+  runningVmids.add(vmid);
+  try {
+    if (state.settings.mockMode) {
+      await appendJobLog(
+        job.id,
+        `[mock] Restored snapshot ${snapshotName} and started the container.\n`,
+      );
+    } else {
+      await rollbackSnapshot(
+        state.settings,
+        container.node,
+        vmid,
+        snapshotName,
+      );
+      await appendJobLog(
+        job.id,
+        `Rolled back to ${snapshotName} and started the container.\n`,
+      );
+    }
+    await patchJob(job.id, {
+      status: "succeeded",
+      finishedAt: new Date().toISOString(),
+    });
+    return { snapshotName, jobId: job.id };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await appendJobLog(job.id, `✗ ${message}\n`);
+    await patchJob(job.id, {
+      status: "failed",
+      finishedAt: new Date().toISOString(),
+      error: message,
+    });
+    throw err;
+  } finally {
+    runningVmids.delete(vmid);
+  }
 }

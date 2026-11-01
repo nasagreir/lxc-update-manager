@@ -122,6 +122,74 @@ async function pveFetchSafe<T>(
   });
 }
 
+export async function pveRequest<T>(
+  settings: AppSettings,
+  pathname: string,
+  init?: {
+    method?: "GET" | "POST" | "DELETE";
+    form?: Record<string, string | number | boolean>;
+  },
+): Promise<T> {
+  if (!settings.apiTokenSecret) {
+    throw new Error("Proxmox API token secret is not configured.");
+  }
+
+  const method = init?.method ?? "GET";
+  const body =
+    init?.form != null
+      ? new URLSearchParams(
+          Object.fromEntries(
+            Object.entries(init.form).map(([k, v]) => [k, String(v)]),
+          ),
+        ).toString()
+      : undefined;
+  const url = `${baseUrl(settings)}${pathname}`;
+  const headers: Record<string, string> = {
+    Authorization: authHeader(settings),
+  };
+  if (body) headers["Content-Type"] = "application/x-www-form-urlencoded";
+
+  const https = await import("https");
+  const agent = settings.proxmoxVerifyTls
+    ? undefined
+    : new https.Agent({ rejectUnauthorized: false });
+
+  return new Promise<T>((resolve, reject) => {
+    const req = https.request(
+      url,
+      { method, headers, agent },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          if ((res.statusCode ?? 500) >= 400) {
+            reject(
+              new Error(
+                `Proxmox API ${res.statusCode} on ${method} ${pathname}: ${text || res.statusMessage}`,
+              ),
+            );
+            return;
+          }
+          if (!text) {
+            resolve(undefined as T);
+            return;
+          }
+          try {
+            const parsed = JSON.parse(text) as { data: T };
+            resolve(parsed.data);
+          } catch (err) {
+            reject(err);
+          }
+        });
+      },
+    );
+    req.on("error", reject);
+    if (body) req.write(body);
+    req.end();
+  });
+}
+
 function mapStatus(status?: string): ContainerStatus {
   if (status === "running") return "running";
   if (status === "stopped") return "stopped";
@@ -176,6 +244,8 @@ type LxcInventory = Omit<
   | "updateAvailableDetail"
   | "pendingUpdateCount"
   | "notes"
+  | "lastSnapshotName"
+  | "lastSnapshotAt"
 >;
 
 export async function listLxcFromProxmox(

@@ -33,6 +33,9 @@ export interface LxcContainer {
   updateAvailableDetail: string | null;
   pendingUpdateCount: number;
   notes?: string;
+  /** Latest Proxmox snapshot taken before an update (`lxcu…`). */
+  lastSnapshotName?: string | null;
+  lastSnapshotAt?: string | null;
 }
 
 /** Proxmox host (node) with apt system-update status. */
@@ -160,6 +163,11 @@ export interface AppSettings {
    * Newline-separated; typically "y" repeated.
    */
   communityScriptAnswers: string;
+  /**
+   * Take a native Proxmox LXC snapshot before each guest update.
+   * A failed update is rolled back to that snapshot.
+   */
+  snapshotBeforeUpdate: boolean;
 }
 
 /** UI login credentials — raw password is never persisted. */
@@ -193,6 +201,8 @@ export interface AppState {
       updateAvailableDetail: string | null;
       pendingUpdateCount: number;
       notes?: string;
+      lastSnapshotName?: string | null;
+      lastSnapshotAt?: string | null;
     }
   >;
   /** Cached Proxmox host (node) system-update status, keyed by node name. */

@@ -60,6 +60,7 @@ export function AppShell() {
   const [logJobId, setLogJobId] = useState<string | null>(null);
   const [logOpen, setLogOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [rollingBackVmid, setRollingBackVmid] = useState<number | null>(null);
 
   async function handleLogout() {
     setLoggingOut(true);
@@ -203,6 +204,37 @@ export function AppShell() {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setUpdating(false);
+    }
+  }
+
+  async function handleRollback(vmid: number) {
+    const container = containers.find((c) => c.vmid === vmid);
+    const name = container?.name ?? `CT ${vmid}`;
+    const snap = container?.lastSnapshotName ?? "the pre-update snapshot";
+    const ok = window.confirm(
+      `Roll ${name} back to Proxmox snapshot ${snap}? The guest restarts at the state from before its last update.`,
+    );
+    if (!ok) return;
+    setRollingBackVmid(vmid);
+    setError(null);
+    try {
+      const res = await fetch("/api/containers/rollback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vmid }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Rollback failed");
+      await Promise.all([loadContainers(false), loadJobs()]);
+      if (data.jobId) {
+        setLogJobId(data.jobId);
+        setLogOpen(true);
+        setTab("jobs");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRollingBackVmid(null);
     }
   }
 
@@ -434,6 +466,8 @@ export function AppShell() {
               onCheckUpdates={() => void checkUpdates()}
               onUpdate={handleUpdate}
               updating={updating}
+              onRollback={(vmid) => void handleRollback(vmid)}
+              rollingBackVmid={rollingBackVmid}
             />
           </TabsContent>
           <TabsContent value="nodes" className="flex-1 outline-none">

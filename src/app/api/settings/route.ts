@@ -20,6 +20,7 @@ const settingsSchema = z.object({
   nodeSshHosts: z.string().optional().default(""),
   updateTimeoutSeconds: z.number().int().min(60).max(86400),
   communityScriptAnswers: z.string(),
+  snapshotBeforeUpdate: z.boolean().optional().default(true),
 });
 
 function redact(settings: Awaited<ReturnType<typeof readState>>["settings"]) {

@@ -36,6 +36,7 @@ const empty: SettingsForm = {
   nodeSshHosts: "",
   updateTimeoutSeconds: 1800,
   communityScriptAnswers: "y\ny\ny\ny\ny\ny\ny\ny\n",
+  snapshotBeforeUpdate: true,
 };
 
 export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
@@ -253,6 +254,26 @@ export function SettingsPanel({ onSaved }: { onSaved: () => Promise<void> }) {
             id="mock"
           />
           <Label htmlFor="mock">Mock mode</Label>
+        </div>
+        <div className="flex items-start gap-3">
+          <Switch
+            checked={form.snapshotBeforeUpdate}
+            onCheckedChange={(v) => set("snapshotBeforeUpdate", v)}
+            id="snapshot"
+          />
+          <div>
+            <Label htmlFor="snapshot">Snapshot before update</Label>
+            <p className="text-xs text-muted-foreground">
+              Take a native Proxmox snapshot of each guest before updating it.
+              If the update fails, the container is rolled back to that
+              snapshot and started again. The snapshot is kept so you can roll
+              back later from the Containers tab. The API token needs{" "}
+              <span className="font-mono">VM.Snapshot</span> and{" "}
+              <span className="font-mono">VM.Snapshot.Rollback</span>. Disks
+              must live on snapshot-capable storage (ZFS, LVM-thin, Ceph, or
+              btrfs).
+            </p>
+          </div>
         </div>
       </section>
 

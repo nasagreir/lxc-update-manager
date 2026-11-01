@@ -220,3 +220,34 @@
 .animate-pulse-soft {
   animation: pulse-soft 1.6s ease-in-out infinite;
 }
+
+/* iPhone Duo / iOS Safari — respect notch, Dynamic Island, home indicator */
+.safe-pad {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+}
+
+.safe-pad-inline {
+  padding-right: max(0px, env(safe-area-inset-right, 0px));
+  padding-left: max(0px, env(safe-area-inset-left, 0px));
+}
+
+/*
+ * Fold crease gutter: when the viewport is book-folded (short + wide),
+ * keep interactive chrome off the center hinge band.
+ */
+@media (orientation: landscape) and (max-height: 560px) {
+  .duo-fold-gutter {
+    column-gap: clamp(0.75rem, 4vw, 2rem);
+  }
+}
+
+/* Prefer touch-sized targets on coarse pointers (phones / Duo). */
+@media (pointer: coarse) {
+  .touch-target {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+}

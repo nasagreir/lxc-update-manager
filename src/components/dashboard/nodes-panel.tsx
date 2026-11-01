@@ -13,6 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import type { ProxmoxNode } from "@/lib/types";
 import { formatRelative, statusTone } from "@/lib/format";
+import { useDuoLayout } from "@/hooks/use-duo-layout";
 import { cn } from "@/lib/utils";
 
 export function NodesPanel({
@@ -34,6 +35,7 @@ export function NodesPanel({
   onUpdate: (nodeNames: string[]) => Promise<void>;
   updating: boolean;
 }) {
+  const { compactWidth } = useDuoLayout();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const availableCount = nodes.filter((n) => n.updateAvailable).length;
@@ -127,9 +129,76 @@ export function NodesPanel({
         <div className="py-16 text-center text-muted-foreground">
           No Proxmox nodes found. Check Settings → include nodes / API token.
         </div>
+      ) : compactWidth ? (
+        <div className="space-y-2">
+          {sorted.map((node) => (
+            <div
+              key={node.name}
+              className={cn(
+                "rounded-lg border border-border/80 bg-card/80 p-3 shadow-sm",
+                node.updateAvailable && "border-red-500/40 bg-red-500/10",
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  className="mt-1"
+                  checked={selected.has(node.name)}
+                  onCheckedChange={() => toggleOne(node.name)}
+                  aria-label={`Select ${node.name}`}
+                />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Server className="size-4 shrink-0 text-primary" />
+                      <span className="truncate font-semibold tracking-tight">
+                        {node.name}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className={statusTone(node.status)}>
+                      {node.status}
+                    </Badge>
+                  </div>
+                  <p className="font-mono text-xs text-muted-foreground">
+                    {node.sshHost}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatRelative(node.lastCheckedAt)}
+                    {node.updateAvailableDetail
+                      ? ` · ${node.updateAvailableDetail}`
+                      : ""}
+                  </p>
+                  {node.updateAvailable === true ? (
+                    <Button
+                      size="sm"
+                      className="w-full bg-red-600 text-white hover:bg-red-700 touch-target"
+                      disabled={updating}
+                      onClick={() => void onUpdate([node.name])}
+                    >
+                      {updating ? (
+                        <Loader2 className="animate-spin" />
+                      ) : (
+                        <ArrowUpCircle />
+                      )}
+                      Update available
+                      {node.pendingUpdateCount > 0 && (
+                        <span className="ml-1">({node.pendingUpdateCount})</span>
+                      )}
+                    </Button>
+                  ) : node.updateAvailable === false ? (
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                      Up to date
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Not checked</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border/80 bg-card/80 shadow-sm backdrop-blur-sm">
-          <table className="w-full min-w-[720px] text-sm">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="w-10 px-3 py-3">

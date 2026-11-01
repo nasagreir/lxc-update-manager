@@ -78,6 +78,7 @@ This repo also ships the usual pair for upstream-style installs:
 - **Automations** — cron schedules that can re-check first and only update outdated CTs
 - **API keys** — Bearer auth for Grok / other bots via `/api/v1/*`
 - **Login** — password-protected web UI; recover or change the password from the CT console
+- **iPhone Duo** — Safari UI adapts to outer/inner displays: side tab rail in landscape / short viewports, card lists on compact width, safe-area insets for notch / home indicator
 
 ## Login & password recovery
 

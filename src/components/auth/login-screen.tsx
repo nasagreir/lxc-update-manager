@@ -81,11 +81,11 @@ export function LoginScreen({
         aria-hidden
         className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_oklch(0.72_0.06_210_/_0.35),_transparent_55%),linear-gradient(180deg,_var(--background),_oklch(0.96_0.02_210))] dark:bg-[radial-gradient(ellipse_at_top,_oklch(0.35_0.05_210_/_0.45),_transparent_55%),linear-gradient(180deg,_var(--background),_oklch(0.16_0.02_240))]"
       />
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
-        <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+      <div className="safe-pad relative z-10 flex flex-1 flex-col items-center justify-center py-8 sm:py-12">
+        <div className="absolute top-[max(1rem,env(safe-area-inset-top))] right-[max(1rem,env(safe-area-inset-right))]">
           <ThemeToggle />
         </div>
-        <div className="w-full max-w-md animate-fade-up">
+        <div className="w-full max-w-md animate-fade-up px-1">
           <div className="mb-8 text-center">
             <p className="font-mono text-xs tracking-[0.2em] text-primary/80 uppercase">
               Proxmox · LXC

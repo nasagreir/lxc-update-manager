@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme";
@@ -20,6 +20,25 @@ export const metadata: Metadata = {
   title: "LXC Updater — Proxmox",
   description:
     "Update Proxmox LXC containers from the web, including community helper-script updates and scheduled automations.",
+  appleWebApp: {
+    capable: true,
+    title: "LXC Updater",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+/** iPhone Duo / Safari: cover fold + notch safe areas; fluid resize. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f2f7f9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b1218" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

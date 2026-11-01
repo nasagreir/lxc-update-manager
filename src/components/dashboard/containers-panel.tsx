@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import type { LxcContainer } from "@/lib/types";
 import { formatRelative, methodLabel, statusTone } from "@/lib/format";
+import { useDuoLayout } from "@/hooks/use-duo-layout";
 import { cn } from "@/lib/utils";
 
 export function ContainersPanel({
@@ -42,6 +43,7 @@ export function ContainersPanel({
   onUpdate: (vmids: number[]) => Promise<void>;
   updating: boolean;
 }) {
+  const { compactWidth } = useDuoLayout();
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [query, setQuery] = useState("");
   const [nodeFilter, setNodeFilter] = useState<string>("all");
@@ -181,9 +183,91 @@ export function ContainersPanel({
           No containers match. Configure Proxmox in Settings, or keep mock mode
           on to explore the UI.
         </div>
+      ) : compactWidth ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 px-1">
+            <Checkbox
+              checked={allFilteredSelected}
+              onCheckedChange={toggleAll}
+              aria-label="Select all"
+            />
+            <span className="text-xs text-muted-foreground">Select all</span>
+          </div>
+          {filtered.map((c) => (
+            <div
+              key={`${c.node}-${c.vmid}`}
+              className={cn(
+                "rounded-lg border border-border/80 bg-card/80 p-3 shadow-sm",
+                c.updateAvailable && "border-red-500/40 bg-red-500/10",
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  className="mt-1"
+                  checked={selected.has(c.vmid)}
+                  onCheckedChange={() => toggleOne(c.vmid)}
+                  aria-label={`Select ${c.name}`}
+                />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="truncate font-medium">{c.name}</div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        {c.vmid} · {c.node}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={statusTone(c.status)}>
+                      {c.status}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-mono">
+                      {methodLabel(c.updateMethod)}
+                    </span>
+                    <span>·</span>
+                    <span>{formatRelative(c.lastCheckedAt)}</span>
+                  </div>
+                  {c.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {c.tags.map((t) => (
+                        <Badge
+                          key={t}
+                          variant="secondary"
+                          className="text-[10px] font-normal"
+                        >
+                          {t}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                  {c.updateAvailable ? (
+                    <Button
+                      size="sm"
+                      className="w-full bg-red-600 text-white hover:bg-red-700 touch-target"
+                      disabled={
+                        updating ||
+                        c.status !== "running" ||
+                        c.updateMethod === "unknown"
+                      }
+                      onClick={() => void onUpdate([c.vmid])}
+                    >
+                      Update available
+                    </Button>
+                  ) : c.updateAvailable === false ? (
+                    <p className="text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                      Up to date
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">Not checked</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border/80 bg-card/80 shadow-sm backdrop-blur-sm">
-          <table className="w-full min-w-[820px] text-sm">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="w-10 px-3 py-3">

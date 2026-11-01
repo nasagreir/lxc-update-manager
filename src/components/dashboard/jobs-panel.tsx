@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { UpdateJob } from "@/lib/types";
 import { formatRelative, methodLabel, statusTone } from "@/lib/format";
+import { useDuoLayout } from "@/hooks/use-duo-layout";
 import { ScrollText } from "lucide-react";
 
 export function JobsPanel({
@@ -13,6 +14,8 @@ export function JobsPanel({
   jobs: UpdateJob[];
   onOpenLog: (jobId: string) => void;
 }) {
+  const { compactWidth } = useDuoLayout();
+
   if (jobs.length === 0) {
     return (
       <div className="animate-fade-up py-16 text-center text-muted-foreground">
@@ -21,9 +24,68 @@ export function JobsPanel({
     );
   }
 
+  if (compactWidth) {
+    return (
+      <div className="animate-fade-up space-y-2">
+        {jobs.map((job) => (
+          <div
+            key={job.id}
+            className="rounded-lg border border-border/80 bg-card/80 p-3 shadow-sm"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {job.target === "node" ? (
+                    <>
+                      <Badge
+                        variant="outline"
+                        className="border-primary/30 bg-primary/15 text-primary"
+                      >
+                        Host
+                      </Badge>
+                      <span className="font-medium">
+                        {job.node ?? job.containerName}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {job.vmid}
+                      </span>
+                      <span className="font-medium">{job.containerName}</span>
+                    </>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formatRelative(job.startedAt ?? job.finishedAt)} ·{" "}
+                  {job.target === "node"
+                    ? "host apt"
+                    : methodLabel(job.updateMethod)}{" "}
+                  · {job.trigger}
+                </p>
+              </div>
+              <Badge variant="outline" className={statusTone(job.status)}>
+                {job.status}
+              </Badge>
+            </div>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-3 w-full touch-target"
+              onClick={() => onOpenLog(job.id)}
+            >
+              <ScrollText />
+              View log
+            </Button>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="animate-fade-up overflow-x-auto rounded-lg border border-border/80 bg-card/80 shadow-sm backdrop-blur-sm">
-      <table className="w-full min-w-[700px] text-sm">
+      <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <th className="px-3 py-3 font-medium">When</th>
@@ -52,7 +114,9 @@ export function JobsPanel({
                     >
                       Host
                     </Badge>
-                    <span className="font-medium">{job.node ?? job.containerName}</span>
+                    <span className="font-medium">
+                      {job.node ?? job.containerName}
+                    </span>
                   </>
                 ) : (
                   <>

@@ -180,6 +180,12 @@
   html {
     @apply font-sans;
     color-scheme: light;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+  body {
+    max-width: 100%;
+    overflow-x: clip;
   }
   html.dark {
     color-scheme: dark;
@@ -271,4 +277,18 @@
   width: auto !important;
   min-width: 0;
   white-space: nowrap;
+}
+
+/* Header status chips scroll on their own so the page stays put
+   beside the Duo under-display camera / side status column. */
+.chip-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.chip-scroll::-webkit-scrollbar {
+  display: none;
 }

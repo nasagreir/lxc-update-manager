@@ -266,22 +266,22 @@ export function AppShell() {
   return (
     <div
       className={cn(
-        "safe-pad mx-auto flex w-full max-w-6xl flex-1 flex-col",
+        "safe-pad mx-auto flex w-full min-w-0 max-w-6xl flex-1 flex-col overflow-x-clip",
         sideRail ? "py-3 sm:px-4" : "px-4 py-6 sm:px-6 sm:py-8",
       )}
     >
       <header
         className={cn(
-          "animate-fade-up",
-          sideRail ? "mb-3" : "mb-8",
+          "animate-fade-up min-w-0",
+          sideRail ? "mb-3" : "mb-6",
         )}
       >
         <div
           className={cn(
-            "flex gap-3",
+            "flex min-w-0 gap-3",
             sideRail
               ? "flex-row items-center justify-between"
-              : "flex-wrap items-end justify-between gap-4",
+              : "flex-col",
           )}
         >
           <div className="min-w-0">
@@ -306,13 +306,20 @@ export function AppShell() {
               </p>
             )}
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
-            <ThemeToggle />
+          <div
+            className={cn(
+              "flex min-w-0 items-center gap-1.5 sm:gap-2",
+              sideRail ? "shrink-0" : "w-full",
+            )}
+          >
+            <div className="shrink-0">
+              <ThemeToggle />
+            </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="touch-target"
+              className="touch-target shrink-0"
               onClick={() => void handleLogout()}
               disabled={loggingOut}
             >
@@ -321,42 +328,48 @@ export function AppShell() {
                 Sign out
               </span>
             </Button>
-            {mockMode && (
-              <Badge
-                variant="outline"
-                className="border-amber-500/50 bg-amber-500/15 text-amber-900 dark:text-amber-200"
-              >
-                Mock
-              </Badge>
-            )}
-            {!sideRail && (
-              <>
-                <Badge variant="secondary">
-                  {runningCount}/{containers.length} running
-                </Badge>
-                {nodeCount > 0 && (
-                  <Badge variant="outline">
-                    {nodeCount} node{nodeCount === 1 ? "" : "s"}
-                  </Badge>
-                )}
-                {availableCount > 0 && (
-                  <Badge className="bg-red-600 text-white hover:bg-red-600">
-                    {availableCount} CT update
-                    {availableCount === 1 ? "" : "s"}
-                  </Badge>
-                )}
-                {nodeUpdatesAvailable > 0 && (
-                  <Badge className="bg-orange-600 text-white hover:bg-orange-600">
-                    {nodeUpdatesAvailable} host update
-                    {nodeUpdatesAvailable === 1 ? "" : "s"}
-                  </Badge>
-                )}
-                {activeJobs > 0 && (
-                  <Badge className="bg-teal-700 text-white hover:bg-teal-700 dark:bg-teal-600">
-                    {activeJobs} job{activeJobs === 1 ? "" : "s"} active
-                  </Badge>
-                )}
-              </>
+            {(mockMode || !sideRail) && (
+              <div className="chip-scroll flex-1">
+                <div className="flex w-max items-center gap-1.5 pr-1">
+                  {mockMode && (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500/50 bg-amber-500/15 text-amber-900 dark:text-amber-200"
+                    >
+                      Mock
+                    </Badge>
+                  )}
+                  {!sideRail && (
+                    <>
+                      <Badge variant="secondary">
+                        {runningCount}/{containers.length} running
+                      </Badge>
+                      {nodeCount > 0 && (
+                        <Badge variant="outline">
+                          {nodeCount} node{nodeCount === 1 ? "" : "s"}
+                        </Badge>
+                      )}
+                      {availableCount > 0 && (
+                        <Badge className="bg-red-600 text-white hover:bg-red-600">
+                          {availableCount} CT update
+                          {availableCount === 1 ? "" : "s"}
+                        </Badge>
+                      )}
+                      {nodeUpdatesAvailable > 0 && (
+                        <Badge className="bg-orange-600 text-white hover:bg-orange-600">
+                          {nodeUpdatesAvailable} host update
+                          {nodeUpdatesAvailable === 1 ? "" : "s"}
+                        </Badge>
+                      )}
+                      {activeJobs > 0 && (
+                        <Badge className="bg-teal-700 text-white hover:bg-teal-700 dark:bg-teal-600">
+                          {activeJobs} job{activeJobs === 1 ? "" : "s"} active
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
             )}
           </div>
         </div>
